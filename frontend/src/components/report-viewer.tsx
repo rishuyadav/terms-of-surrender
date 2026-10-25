@@ -296,7 +296,12 @@ export function ReportViewer({ id }: { id: string }) {
                     {view.document.pageCount === 1 ? "PAGE" : "PAGES"}
                   </span>
                 </div>
-                <div className="source-document">
+                <div
+                  className="source-document"
+                  role="region"
+                  aria-label="Extracted contract text"
+                  tabIndex={0}
+                >
                   <div className="source-document-heading">
                     <span className="label-caption">YOUR SUPPLIED DOCUMENT</span>
                     <p>Extracted text · Formatting may differ from the original</p>

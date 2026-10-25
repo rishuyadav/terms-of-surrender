@@ -776,7 +776,7 @@ svg {
 .analysis-mode-banner.model {
   background: #eaf0e7;
   border-color: #d4dfcc;
-  color: #637658;
+  color: #536447;
 }
 .analysis-mode-banner.model strong {
   color: #52674b;
@@ -1013,7 +1013,7 @@ svg {
 }
 .impact-pill.favorable {
   background: #e9efdf;
-  color: #647d47;
+  color: #4f633b;
 }
 .finding-index {
   color: #aab099;
@@ -1259,7 +1259,7 @@ summary::-webkit-details-marker {
   border-color: #e8d8c9;
 }
 .processing-card.failed p {
-  color: #9a8371;
+  color: #745c49;
 }
 .connection-notice {
   color: var(--amber);
