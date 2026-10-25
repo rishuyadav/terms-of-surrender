@@ -35,9 +35,10 @@ public class AnalysisWorker {
                                 repository.complete(job.id(), engine.analyze(job.input()));
                             } catch (Exception exception) {
                                 LOG.warn(
-                                        "Analysis {} failed with {}",
+                                        "Analysis {} failed with {}: {}",
                                         job.id(),
-                                        exception.getClass().getSimpleName());
+                                        exception.getClass().getSimpleName(),
+                                        exception.getMessage());
                                 repository.fail(job.id());
                             }
                         });

@@ -24,7 +24,7 @@ import java.util.regex.Pattern;
 
 /** OpenAI-compatible adapter. Provider failures never silently downgrade to preview mode. */
 public class ModelAnalysisEngine implements AnalysisEngine, AutoCloseable {
-    private static final int MAX_RESPONSE_BYTES = 262_144;
+    private static final int MAX_RESPONSE_BYTES = 524_288;
     private static final String CORE_INSTRUCTIONS =
             """
             You explain contract text; you do not provide legal advice or determine enforceability.
@@ -364,7 +364,7 @@ public class ModelAnalysisEngine implements AnalysisEngine, AutoCloseable {
                                     "model",
                                     config.name(),
                                     "max_completion_tokens",
-                                    4500,
+                                    8000,
                                     "response_format",
                                     Map.of("type", "json_object"),
                                     "messages",
@@ -395,8 +395,9 @@ public class ModelAnalysisEngine implements AnalysisEngine, AutoCloseable {
                 throw new IllegalStateException("Model request failed");
             }
             JsonNode choice = mapper.readTree(response.body()).path("choices").path(0);
-            if (!"stop".equals(choice.path("finish_reason").asText())) {
-                throw new IllegalStateException("Model response incomplete");
+            String finishReason = choice.path("finish_reason").asText("");
+            if (!finishReason.equalsIgnoreCase("stop")) {
+                throw new IllegalStateException("Model response incomplete: finish_reason=" + finishReason);
             }
             return mapper.readTree(choice.path("message").path("content").asText());
         } catch (InterruptedException exception) {
