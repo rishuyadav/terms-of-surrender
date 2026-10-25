@@ -30,7 +30,16 @@ services:
     depends_on:
       database:
         condition: service_healthy
-    mem_limit: 768m
+    # Aggregate limits cover the API and its short-lived parser children.
+    mem_limit: 1536m
+    cpus: 2
+    pids_limit: 192
+    read_only: true
+    tmpfs:
+      - /tmp:size=128m,mode=1777
+    cap_drop: [ALL]
+    security_opt:
+      - no-new-privileges:true
     restart: unless-stopped
 
   frontend:

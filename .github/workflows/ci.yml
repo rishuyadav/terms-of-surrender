@@ -118,6 +118,7 @@ jobs:
       - run: npm run test:e2e -- --project=desktop --project=mobile
         working-directory: frontend
       - run: python3 scripts/verify-containers.py --engine docker
+      - run: python3 scripts/verify-parser-runtime.py --engine docker
       - name: Container diagnostics
         if: failure()
         run: docker compose -p tos-verification -f compose.yml -f compose.verification.yml logs --no-color
