@@ -103,6 +103,30 @@ class JurisdictionContextTest {
     }
 
     @Test
+    void previewEngineFavorableRulesFire() {
+        var engine = new PreviewAnalysisEngine(new EvidenceValidator());
+        var extractor = new dev.termsofsurrender.documents.DocumentExtractor();
+
+        // Text contains opt-out, written-notice-for-changes, and refund provisions.
+        String text = "Members may opt out of arbitration by sending written notice within thirty days. "
+                + "The club may change these terms on thirty days written notice. "
+                + "If the club closes, prepaid amounts for unused months will be refunded. "
+                + "The membership renews automatically each year.";
+
+        var doc = extractor.extract(text, null);
+        var report = engine.analyze(new Analysis.Input(
+                doc,
+                new Analysis.Context(Analysis.Jurisdiction.US, Analysis.Category.CONSUMER, "")));
+
+        assertThat(report.findings())
+                .anyMatch(f -> f.impact() == Analysis.Impact.FAVORABLE);
+        assertThat(report.findings())
+                .anyMatch(f -> f.id().equals("opt-out") && f.impact() == Analysis.Impact.FAVORABLE);
+        assertThat(report.findings())
+                .anyMatch(f -> f.id().equals("refund-right") && f.impact() == Analysis.Impact.FAVORABLE);
+    }
+
+    @Test
     void previewReportContextLabelMatchesJurisdictionContextLabel() {
         var engine = new PreviewAnalysisEngine(new EvidenceValidator());
         var extractor = new dev.termsofsurrender.documents.DocumentExtractor();

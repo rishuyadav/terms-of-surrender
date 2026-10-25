@@ -15,6 +15,7 @@ public class PreviewAnalysisEngine implements AnalysisEngine {
 
   private static final List<Rule> RULES =
       List.of(
+          // ── REVIEW rules ────────────────────────────────────────────────────────────
           rule(
               "renewal",
               "Renewal & cancellation",
@@ -161,7 +162,48 @@ public class PreviewAnalysisEngine implements AnalysisEngine {
                   + " date, the price after trial, and how to cancel before being charged.",
               "What is the exact date my trial converts to a paid plan, and what steps must I take"
                   + " to cancel before then?",
-              EnumSet.of(Analysis.Category.CONSUMER)));
+              EnumSet.of(Analysis.Category.CONSUMER)),
+
+          // ── FAVORABLE rules ──────────────────────────────────────────────────────────
+          favorableRule(
+              "opt-out",
+              "Opt-out right",
+              "Agreement includes an opt-out option",
+              "opt[- ]out|right to opt out|may opt out|decline by",
+              "An explicit opt-out is a meaningful protection. Verify the deadline, the required"
+                  + " method, and what remains in effect if you opt out.",
+              "What is the deadline and exact method to exercise this opt-out?",
+              ALL_CATEGORIES),
+          favorableRule(
+              "notice-of-changes",
+              "Notice before changes",
+              "Changes require advance notice",
+              "(?:days?|weeks?|months?) (?:written |advance )?notice|(?:written |advance )?notice"
+                  + " of.*?(?:change|modification|amendment)",
+              "A notice requirement gives you time to review changes and decide whether to stay."
+                  + " Confirm the notice period, the delivery method, and your right to leave"
+                  + " without penalty if you disagree.",
+              "How long is the notice period, and can I cancel without a fee if I reject the"
+                  + " change?",
+              ALL_CATEGORIES),
+          favorableRule(
+              "refund-right",
+              "Refund or repayment right",
+              "Agreement includes a refund or repayment provision",
+              "will (?:be )?refund|refund(?:ed|able)|prepaid amounts.*?refund|unused.*?refund",
+              "An explicit refund or repayment provision is a meaningful protection. Verify the"
+                  + " trigger, the timeline, and any conditions or exclusions.",
+              "Under what conditions will a refund be issued, and within how many days?",
+              ALL_CATEGORIES),
+          favorableRule(
+              "portfolio",
+              "Portfolio right",
+              "Freelancer may keep a portfolio copy",
+              "portfolio|display.*?work|showcase.*?work|show.*?in.*?portfolio",
+              "A portfolio right lets you show your work to future clients. Confirm any restrictions"
+                  + " on medium, audience, or duration.",
+              "Are there any restrictions on how or where I may display this work in my portfolio?",
+              EnumSet.of(Analysis.Category.FREELANCE)));
 
   private final EvidenceValidator validator;
 
@@ -193,19 +235,27 @@ public class PreviewAnalysisEngine implements AnalysisEngine {
         validator
             .locate(input.document(), block.id(), quote)
             .ifPresent(
-                evidence ->
-                    findings.add(
-                        new Analysis.Finding(
-                            rule.id(),
-                            rule.category(),
-                            Analysis.Impact.REVIEW,
-                            rule.title(),
-                            "This passage mentions "
-                                + rule.category().toLowerCase(java.util.Locale.ROOT)
-                                + ". Review the exact wording and surrounding sections.",
-                            rule.reason(),
-                            evidence,
-                            rule.question())));
+                evidence -> {
+                  String explanation =
+                      rule.impact() == Analysis.Impact.FAVORABLE
+                          ? "This passage includes a "
+                              + rule.category().toLowerCase(java.util.Locale.ROOT)
+                              + " provision. Verify the conditions and any exceptions that may"
+                              + " limit it."
+                          : "This passage mentions "
+                              + rule.category().toLowerCase(java.util.Locale.ROOT)
+                              + ". Review the exact wording and surrounding sections.";
+                  findings.add(
+                      new Analysis.Finding(
+                          rule.id(),
+                          rule.category(),
+                          rule.impact(),
+                          rule.title(),
+                          explanation,
+                          rule.reason(),
+                          evidence,
+                          rule.question()));
+                });
         break;
       }
     }
@@ -242,6 +292,26 @@ public class PreviewAnalysisEngine implements AnalysisEngine {
     return new Rule(
         id,
         category,
+        Analysis.Impact.REVIEW,
+        title,
+        Pattern.compile(expression, Pattern.CASE_INSENSITIVE | Pattern.DOTALL),
+        reason,
+        question,
+        applicableCategories);
+  }
+
+  private static Rule favorableRule(
+      String id,
+      String category,
+      String title,
+      String expression,
+      String reason,
+      String question,
+      EnumSet<Analysis.Category> applicableCategories) {
+    return new Rule(
+        id,
+        category,
+        Analysis.Impact.FAVORABLE,
         title,
         Pattern.compile(expression, Pattern.CASE_INSENSITIVE | Pattern.DOTALL),
         reason,
@@ -276,6 +346,7 @@ public class PreviewAnalysisEngine implements AnalysisEngine {
   private record Rule(
       String id,
       String category,
+      Analysis.Impact impact,
       String title,
       Pattern pattern,
       String reason,
