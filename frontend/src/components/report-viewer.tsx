@@ -508,13 +508,15 @@ ${reportFindings.map((f, i) => `
                       <FileSearch size={28} />
                       <h3>
                         {view.status === "COMPLETED"
-                          ? "No findings were returned."
+                          ? "No topics flagged."
                           : "Findings will appear here."}
                       </h3>
                       <p>
                         {view.status === "COMPLETED"
-                          ? "This is not a safety endorsement. Review the document and the analysis limitations before deciding."
-                          : "You can inspect the extracted source while the analysis runs."}
+                          ? view.report?.mode === "RULE_BASED_PREVIEW"
+                            ? "No keyword patterns matched. This is not a safety endorsement — review the full source text and check the limitations below before deciding."
+                            : "The AI found no specific concerns to highlight. Review the source text and the limitations below before relying on this result."
+                          : "You can read the extracted source while the analysis runs."}
                       </p>
                     </div>
                   ) : findings.filter((finding) => filter === "ALL" || finding.impact === filter)
@@ -559,6 +561,15 @@ ${reportFindings.map((f, i) => `
                 using the trash icon. Downloads remain on your device.
               </span>
             </div>
+
+            {view.status === "COMPLETED" && (
+              <div className="analyze-another">
+                <p>Have another agreement to check?</p>
+                <Link href="/" className="secondary-button">
+                  Analyze another <ArrowRight size={15} />
+                </Link>
+              </div>
+            )}
           </>
         )}
       </main>

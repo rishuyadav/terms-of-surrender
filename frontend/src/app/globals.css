@@ -317,31 +317,6 @@ svg {
   border-top: 1px solid var(--line);
   background: #fdfdf9;
 }
-.context-heading {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  margin-bottom: 14px;
-  font-size: 11px;
-  font-weight: 500;
-}
-.step-marker {
-  display: inline-grid;
-  place-items: center;
-  width: 21px;
-  height: 21px;
-  background: #eeeee7;
-  border: 1px solid #e0e3d7;
-  border-radius: 50%;
-  font-size: 8px;
-  color: #748064;
-}
-.optional-label {
-  margin-left: auto;
-  font-size: 9px;
-  color: #8b9082;
-  font-weight: 400;
-}
 .context-fields {
   display: grid;
   grid-template-columns: 1fr 1.25fr 1fr;
@@ -1441,9 +1416,6 @@ summary::-webkit-details-marker {
   .context-fields label:last-child {
     grid-column: 1 / -1;
   }
-  .optional-label {
-    display: none;
-  }
   .intake-submit-row {
     flex-direction: column-reverse;
     gap: 12px;
@@ -1771,7 +1743,6 @@ summary::-webkit-details-marker {
 .input-limit,
 .label-caption,
 .text-input-footer,
-.optional-label,
 .context-note,
 .mode-caption,
 .upload-note,
@@ -1809,7 +1780,6 @@ summary::-webkit-details-marker {
 .no-filter-results {
   color: #606b54;
 }
-.step-marker,
 .sample-card-icon,
 .summary-stat.review > span,
 .finding-filters button,
@@ -1954,6 +1924,22 @@ summary::-webkit-details-marker {
   font-weight: 600;
   letter-spacing: 0.04em;
   color: #8a8e7c;
+}
+.analyze-another {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  padding: 20px 24px;
+  margin-top: 12px;
+  background: #f7f7f2;
+  border: 1px solid #e8e8e0;
+  border-radius: 8px;
+}
+.analyze-another p {
+  font-size: 13px;
+  color: #6a7060;
+  margin: 0;
 }
 
 @media (prefers-reduced-motion: reduce) {
