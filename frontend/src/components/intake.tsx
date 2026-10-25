@@ -263,12 +263,23 @@ export function Intake() {
               </div>
             )}
 
-            <div className="context-section">
-              <div className="context-heading">
-                <span className="step-marker">01</span>
-                <span>A little context. A clearer reading.</span>
-                <span className="optional-label">You can leave this unspecified</span>
-              </div>
+            <details className="context-section">
+              <summary>
+                Add context (optional) — shapes what the analysis focuses on
+                {(() => {
+                  const parts: string[] = [];
+                  if (jurisdiction === "US") parts.push("United States");
+                  if (jurisdiction === "INDIA") parts.push("India");
+                  if (category === "FREELANCE") parts.push("Freelance / services");
+                  if (category === "OTHER") parts.push("Other agreement");
+                  return parts.length > 0 ? (
+                    <span className="context-summary-pill">{parts.join(" · ")}</span>
+                  ) : null;
+                })()}
+                <span className="context-disclosure-hint">
+                  Jurisdiction shapes analysis focus, not legal conclusions
+                </span>
+              </summary>
               <div className="context-fields">
                 <label>
                   Your location
@@ -306,11 +317,7 @@ export function Intake() {
                   />
                 </label>
               </div>
-              <p className="context-note">
-                Your location is context, not a legal conclusion. Jurisdiction-specific legal
-                guidance is not yet enabled.
-              </p>
-            </div>
+            </details>
 
             {sessionError && (
               <div className="form-error" role="alert">
@@ -333,6 +340,12 @@ export function Intake() {
               </p>
             )}
 
+            {config?.mode === "MODEL_ASSISTED" && (
+              <p className="provider-notice">
+                <ShieldCheck size={13} /> Extracted text will be sent to the configured AI provider
+                for analysis. Do not upload documents containing sensitive personal information.
+              </p>
+            )}
             <div className="intake-submit-row">
               <div className="mode-caption">
                 <span className="status-dot" />

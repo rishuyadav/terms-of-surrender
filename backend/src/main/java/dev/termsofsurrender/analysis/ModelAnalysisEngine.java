@@ -29,12 +29,14 @@ public class ModelAnalysisEngine implements AnalysisEngine, AutoCloseable {
             Explain consequential terms, favorable protections, and practical questions to ask.
             Do not invent legal rights, opt-out procedures, dates, amounts, or missing text.
             The jurisdiction is context only: there is NO reviewed legal corpus. Make NO claims about law.
+            Do NOT say 'under [jurisdiction] law, you have the right to...' or similar. Say instead: 'This clause says...' or 'You may want to ask whether...'
             Qualify your interpretation when another section or missing facts could change it.
-            Return JSON only: {"findings": [{"blockId": "...", "quote": "exact contiguous source text",
+            Use FAVORABLE only for clauses that explicitly grant a right, protection, or option to the reader — for example, an explicit opt-out right, a refund provision, a notice period before changes take effect, or a portfolio retention right. Do NOT use FAVORABLE for clauses that mention a right only to limit or waive it (e.g. 'non-refundable', 'you waive the right to...'). When in doubt, use REVIEW.
+            Return JSON: {"summary": "2-4 sentence plain-English overview of what this agreement covers, the main obligations on each side, and any notable gaps or missing attachments.", "findings": [{"blockId": "...", "quote": "exact contiguous source text",
             "category": "short topic", "impact": "HIGH|REVIEW|FAVORABLE", "title": "short heading",
             "explanation": "plain English, grounded in the quote", "whyItMatters": "practical implication",
             "suggestedQuestion": "a question for the other party, not an instruction to take legal action"}]}.
-            Use at most 6 findings per request. Quote at least 15 characters and at most 1500 characters.
+            Use at most 8 findings per request. Quote at least 15 characters and at most 1500 characters.
             HIGH means a potentially significant practical consequence, not illegality.
             An empty findings array is valid. Do not treat ordinary words alone as proof of a risk.
             """;
@@ -92,14 +94,23 @@ public class ModelAnalysisEngine implements AnalysisEngine, AutoCloseable {
         List<Analysis.Finding> findings = new ArrayList<>();
         Set<String> seen = new HashSet<>();
         int rejected = 0;
+        String summary = null;
         List<List<Document.Block>> chunks = chunks(input.document().blocks());
         if (chunks.size() > 12) {
             throw new IllegalStateException("Document exceeds model request budget");
         }
-        for (List<Document.Block> chunk : chunks) {
-            JsonNode proposals = request(input.context(), chunk).path("findings");
-            if (!proposals.isArray() || proposals.size() > 6) {
+        for (int chunkIndex = 0; chunkIndex < chunks.size(); chunkIndex++) {
+            List<Document.Block> chunk = chunks.get(chunkIndex);
+            JsonNode response = request(input.context(), chunk);
+            JsonNode proposals = response.path("findings");
+            if (!proposals.isArray() || proposals.size() > 8) {
                 throw new IllegalStateException("Invalid model response shape");
+            }
+            if (chunkIndex == 0) {
+                String rawSummary = response.path("summary").asText(null);
+                if (rawSummary != null && !rawSummary.isBlank()) {
+                    summary = rawSummary.length() > 600 ? rawSummary.substring(0, 600) : rawSummary;
+                }
             }
             Set<String> chunkIds = new HashSet<>();
             chunk.forEach(block -> chunkIds.add(block.id()));
@@ -155,7 +166,8 @@ public class ModelAnalysisEngine implements AnalysisEngine, AutoCloseable {
                 List.copyOf(findings),
                 List.copyOf(limitations),
                 false,
-                JurisdictionContext.label(input.context()));
+                JurisdictionContext.label(input.context()),
+                summary);
     }
 
     private JsonNode request(Analysis.Context context, List<Document.Block> blocks) {
@@ -168,7 +180,7 @@ public class ModelAnalysisEngine implements AnalysisEngine, AutoCloseable {
                                     "model",
                                     config.name(),
                                     "max_completion_tokens",
-                                    3500,
+                                    4500,
                                     "response_format",
                                     Map.of("type", "json_object"),
                                     "messages",

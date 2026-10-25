@@ -10,6 +10,7 @@ import {
   Check,
   CircleAlert,
   Clock3,
+  Copy,
   Download,
   FileSearch,
   FileText,
@@ -37,6 +38,7 @@ export function ReportViewer({ id }: { id: string }) {
   const [mobilePane, setMobilePane] = useState<"findings" | "source">("findings");
   const [deleting, setDeleting] = useState(false);
   const [actionError, setActionError] = useState<string | null>(null);
+  const [allCopied, setAllCopied] = useState(false);
   const findings = view?.report?.findings ?? [];
 
   function selectFinding(finding: Finding, fromSource = false) {
@@ -73,16 +75,84 @@ export function ReportViewer({ id }: { id: string }) {
     }
   }
 
+  async function copyAllQuestions() {
+    const text = findings
+      .map((f, i) => `${i + 1}. ${f.suggestedQuestion}`)
+      .join("\n");
+    try {
+      await navigator.clipboard.writeText(text);
+      setAllCopied(true);
+      setTimeout(() => setAllCopied(false), 2000);
+    } catch { /* ignore */ }
+  }
+
   function downloadReport() {
+    if (!view || !view.report) return;
+    const reportFindings = view.report.findings;
+    const html = `<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Contract Analysis — Terms of Surrender</title>
+<style>
+  body { font-family: system-ui, sans-serif; max-width: 720px; margin: 40px auto; padding: 0 24px; color: #1a1a1a; line-height: 1.6; }
+  h1 { font-size: 22px; font-weight: 600; margin-bottom: 4px; }
+  .meta { font-size: 13px; color: #666; margin-bottom: 32px; }
+  .summary { background: #f5f5f0; border-left: 3px solid #888; padding: 14px 16px; margin-bottom: 28px; font-size: 14px; border-radius: 0 4px 4px 0; }
+  .finding { border: 1px solid #e0e0d8; border-radius: 6px; padding: 18px 20px; margin-bottom: 16px; }
+  .finding h2 { font-size: 15px; margin: 0 0 4px; }
+  .badge { display: inline-block; font-size: 10px; font-weight: 600; padding: 2px 7px; border-radius: 10px; text-transform: uppercase; letter-spacing: 0.05em; margin-bottom: 10px; }
+  .badge.high { background: #fde8e8; color: #c0392b; }
+  .badge.review { background: #fff8e1; color: #7d6000; }
+  .badge.favorable { background: #e8f5e9; color: #2e7d32; }
+  .explanation { font-size: 14px; margin: 8px 0; }
+  blockquote { margin: 12px 0; padding: 10px 14px; background: #f9f9f5; border-left: 3px solid #ccc; font-size: 13px; color: #444; border-radius: 0 4px 4px 0; }
+  .question { margin-top: 12px; font-size: 13px; color: #555; }
+  .question strong { display: block; color: #333; }
+  .limitations { margin-top: 40px; padding-top: 20px; border-top: 1px solid #e0e0d8; font-size: 12px; color: #888; }
+  .limitations li { margin-bottom: 6px; }
+  footer { margin-top: 32px; font-size: 11px; color: #aaa; text-align: center; }
+</style>
+</head>
+<body>
+<h1>Contract Analysis</h1>
+<div class="meta">
+  ${view.report.contextLabel && view.report.contextLabel !== "Not specified" ? `${view.report.contextLabel} · ` : ""}${new Date(view.createdAt).toLocaleDateString()} · ${view.report.mode === "RULE_BASED_PREVIEW" ? "Keyword preview" : "AI-assisted"}
+</div>
+${view.report.summary ? `<div class="summary">${view.report.summary}</div>` : ""}
+${reportFindings.map((f, i) => `
+<div class="finding">
+  <span class="badge ${f.impact.toLowerCase()}">${f.impact === "HIGH" ? "High impact" : f.impact === "REVIEW" ? "Worth reviewing" : "Potential protection"}</span>
+  <h2>${i + 1}. ${f.title}</h2>
+  <p class="explanation">${f.explanation}</p>
+  <blockquote>${f.evidence.quote}</blockquote>
+  <div class="question"><strong>A question to ask:</strong>${f.suggestedQuestion}</div>
+</div>`).join("")}
+<div class="limitations">
+  <strong>Limitations</strong>
+  <ul>${view.report.limitations.map((l) => `<li>${l}</li>`).join("")}</ul>
+</div>
+<footer>Terms of Surrender — Clarity, not legal advice. Always verify before acting.</footer>
+</body>
+</html>`;
+    const url = URL.createObjectURL(new Blob([html], { type: "text/html" }));
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = "contract-analysis.html";
+    a.click();
+    URL.revokeObjectURL(url);
+  }
+
+  function downloadJson() {
     if (!view) return;
     const url = URL.createObjectURL(
       new Blob([JSON.stringify(view, null, 2)], { type: "application/json" }),
     );
-    const link = document.createElement("a");
-    link.href = url;
-    link.download = `terms-of-surrender-${id.slice(0, 8)}.json`;
-    link.click();
-    setTimeout(() => URL.revokeObjectURL(url), 1000);
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = "contract-analysis.json";
+    a.click();
+    URL.revokeObjectURL(url);
   }
 
   return (
@@ -142,11 +212,20 @@ export function ReportViewer({ id }: { id: string }) {
                 <button
                   type="button"
                   className="icon-button"
-                  aria-label="Download private report as JSON"
-                  title="Download private report as JSON"
+                  aria-label="Download report as HTML"
+                  title="Download report as HTML"
                   onClick={downloadReport}
                 >
                   <Download size={18} />
+                </button>
+                <button
+                  type="button"
+                  className="text-button json-download-btn"
+                  aria-label="Download report as JSON"
+                  title="Download report as JSON"
+                  onClick={downloadJson}
+                >
+                  JSON
                 </button>
                 <button
                   type="button"
@@ -188,7 +267,7 @@ export function ReportViewer({ id }: { id: string }) {
                 </p>
                 {view.status === "PROCESSING" && !view.report && (
                   <p className="processing-hint">
-                    AI analysis takes 15–30 seconds. You can refresh this page without losing
+                    AI analysis may take up to a minute. You can refresh this page without losing
                     progress.
                   </p>
                 )}
@@ -244,6 +323,13 @@ export function ReportViewer({ id }: { id: string }) {
                     )}
                   </div>
                 </div>
+
+                {view.report?.summary && (
+                  <div className="report-summary-card">
+                    <span className="label-caption">AT A GLANCE</span>
+                    <p>{view.report.summary}</p>
+                  </div>
+                )}
 
                 <section className="nutrition-label" aria-label="Report summary">
                   <div className="nutrition-intro">
@@ -385,6 +471,16 @@ export function ReportViewer({ id }: { id: string }) {
                     <h2 id="findings-title">In plain English</h2>
                   </div>
                   <span>{findings.length} FINDINGS</span>
+                  {findings.length > 0 && (
+                    <button
+                      type="button"
+                      className="text-button copy-all-btn"
+                      onClick={copyAllQuestions}
+                    >
+                      {allCopied ? <Check size={13} /> : <Copy size={13} />}
+                      {allCopied ? "Copied" : "Copy all questions"}
+                    </button>
+                  )}
                 </div>
                 {findings.length > 0 && (
                   <div className="finding-filters" role="group" aria-label="Filter findings">

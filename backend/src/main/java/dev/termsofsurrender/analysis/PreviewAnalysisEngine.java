@@ -169,12 +169,13 @@ public class PreviewAnalysisEngine implements AnalysisEngine {
               "opt-out",
               "Opt-out right",
               "Agreement includes an opt-out option",
-              "opt[- ]out|right to opt out|may opt out|decline by",
+              "(?<!(?:not |cannot |waive ))\\b(?:may opt out|right to opt out|opt[- ]out"
+                  + " (?:by|within|at any time)|you (?:may|can) opt out)",
               "An explicit opt-out is a meaningful protection. Verify the deadline, the required"
                   + " method, and what remains in effect if you opt out.",
               "What is the deadline and exact method to exercise this opt-out?",
               ALL_CATEGORIES),
-          favorableRule(
+          rule(
               "notice-of-changes",
               "Notice before changes",
               "Changes require advance notice",
@@ -190,7 +191,8 @@ public class PreviewAnalysisEngine implements AnalysisEngine {
               "refund-right",
               "Refund or repayment right",
               "Agreement includes a refund or repayment provision",
-              "will (?:be )?refund|refund(?:ed|able)|prepaid amounts.*?refund|unused.*?refund",
+              "(?<!non[- ])(?<!not )refund(?:ed|able)\\b|will (?:be )?refunded|prepaid"
+                  + " amounts.*?refund|unused.*?refund",
               "An explicit refund or repayment provision is a meaningful protection. Verify the"
                   + " trigger, the timeline, and any conditions or exclusions.",
               "Under what conditions will a refund be issued, and within how many days?",
@@ -199,7 +201,8 @@ public class PreviewAnalysisEngine implements AnalysisEngine {
               "portfolio",
               "Portfolio right",
               "Freelancer may keep a portfolio copy",
-              "portfolio|display.*?work|showcase.*?work|show.*?in.*?portfolio",
+              "may (?:display|showcase|use|include|show).*?(?:portfolio|work)|portfolio"
+                  + " rights?|retain.*?portfolio|display.*?in.*?portfolio",
               "A portfolio right lets you show your work to future clients. Confirm any restrictions"
                   + " on medium, audience, or duration.",
               "Are there any restrictions on how or where I may display this work in my portfolio?",
@@ -278,7 +281,8 @@ public class PreviewAnalysisEngine implements AnalysisEngine {
         List.copyOf(findings),
         List.copyOf(limitations),
         false,
-        JurisdictionContext.label(input.context()));
+        JurisdictionContext.label(input.context()),
+        null);
   }
 
   private static Rule rule(

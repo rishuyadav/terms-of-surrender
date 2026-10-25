@@ -45,6 +45,7 @@ export interface Report {
   limitations: string[];
   legalContextAvailable: boolean;
   contextLabel: string;
+  summary?: string | null;
 }
 
 export interface AnalysisView {

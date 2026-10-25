@@ -60,7 +60,8 @@ public final class Analysis {
             List<Finding> findings,
             List<String> limitations,
             boolean legalContextAvailable,
-            String contextLabel) {}
+            String contextLabel,
+            String summary) {}
 
     public record View(
             UUID id,

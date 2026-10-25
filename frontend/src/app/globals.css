@@ -1871,6 +1871,91 @@ summary::-webkit-details-marker {
   font-size: 10px;
 }
 
+/* Context disclosure */
+.context-section summary {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  cursor: pointer;
+  font-size: 11px;
+  font-weight: 550;
+  color: var(--muted);
+  padding: 10px 0;
+  list-style: none;
+  user-select: none;
+}
+.context-section summary::-webkit-details-marker { display: none; }
+.context-section summary::before {
+  content: "▸";
+  font-size: 9px;
+  color: #aaa898;
+  transition: transform 0.15s;
+}
+.context-section[open] summary::before { content: "▾"; }
+.context-section[open] summary { margin-bottom: 12px; }
+.context-summary-pill {
+  background: var(--line);
+  border-radius: 8px;
+  padding: 2px 8px;
+  font-size: 9px;
+  font-weight: 600;
+  color: #6a7060;
+  letter-spacing: 0.03em;
+}
+.context-disclosure-hint {
+  margin-left: auto;
+  font-size: 9px;
+  font-weight: 400;
+  color: #9a9e8c;
+}
+
+/* Provider notice */
+.provider-notice {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 10px;
+  color: #7a7060;
+  background: #f5f0e4;
+  border: 1px solid #e5dfc8;
+  border-radius: 6px;
+  padding: 8px 12px;
+  margin-bottom: 10px;
+}
+
+/* Report summary card */
+.report-summary-card {
+  background: #f7f6f0;
+  border: 1px solid #e5e0d0;
+  border-radius: 8px;
+  padding: 18px 20px;
+  margin: 16px 0;
+}
+.report-summary-card .label-caption {
+  display: block;
+  margin-bottom: 8px;
+}
+.report-summary-card p {
+  font-size: 14px;
+  line-height: 1.65;
+  color: #3a3830;
+  margin: 0;
+}
+
+/* Copy all questions button */
+.copy-all-btn {
+  font-size: 10px;
+  margin-left: auto;
+  gap: 5px;
+  color: #6a7060;
+}
+.json-download-btn {
+  font-size: 9px;
+  font-weight: 600;
+  letter-spacing: 0.04em;
+  color: #8a8e7c;
+}
+
 @media (prefers-reduced-motion: reduce) {
   html {
     scroll-behavior: auto;
