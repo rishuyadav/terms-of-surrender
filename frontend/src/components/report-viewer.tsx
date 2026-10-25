@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useMemo } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import {
@@ -19,8 +19,10 @@ import {
   LoaderCircle,
   LockKeyhole,
   RotateCcw,
+  Search,
   ShieldCheck,
   Trash2,
+  X,
 } from "lucide-react";
 import { Brand } from "./brand";
 import { FindingCard } from "./finding-card";
@@ -39,7 +41,19 @@ export function ReportViewer({ id }: { id: string }) {
   const [deleting, setDeleting] = useState(false);
   const [actionError, setActionError] = useState<string | null>(null);
   const [allCopied, setAllCopied] = useState(false);
+  const [sourceSearch, setSourceSearch] = useState("");
   const findings = view?.report?.findings ?? [];
+
+  // Blocks that match the source search query (case-insensitive substring).
+  const searchQuery = sourceSearch.trim().toLowerCase();
+  const matchingBlockIds = useMemo(() => {
+    if (!searchQuery || !view) return null;
+    return new Set(
+      view.document.blocks
+        .filter((b) => b.text.toLowerCase().includes(searchQuery))
+        .map((b) => b.id),
+    );
+  }, [searchQuery, view]);
 
   function selectFinding(finding: Finding, fromSource = false) {
     setSelected(finding.id);
@@ -394,6 +408,16 @@ ${reportFindings.map((f, i) => `
 
             <div className={`report-workspace mobile-${mobilePane}`}>
               <section className="source-pane" aria-labelledby="source-title">
+                {selected && mobilePane === "source" && (
+                  <button
+                    type="button"
+                    className="mobile-back-banner"
+                    onClick={() => setMobilePane("findings")}
+                  >
+                    <ArrowLeft size={14} />
+                    Back to findings
+                  </button>
+                )}
                 <div className="pane-header">
                   <div>
                     <FileText size={16} />
@@ -406,6 +430,32 @@ ${reportFindings.map((f, i) => `
                       : "EXTRACTED TEXT"}
                   </span>
                 </div>
+                <div className="source-search-row">
+                  <Search size={13} className="source-search-icon" />
+                  <input
+                    type="search"
+                    className="source-search-input"
+                    placeholder="Search the document…"
+                    value={sourceSearch}
+                    onChange={(e) => setSourceSearch(e.target.value)}
+                    aria-label="Search document text"
+                  />
+                  {sourceSearch && (
+                    <button
+                      type="button"
+                      className="source-search-clear"
+                      aria-label="Clear search"
+                      onClick={() => setSourceSearch("")}
+                    >
+                      <X size={12} />
+                    </button>
+                  )}
+                  {searchQuery && matchingBlockIds !== null && (
+                    <span className="source-search-count">
+                      {matchingBlockIds.size} {matchingBlockIds.size === 1 ? "block" : "blocks"}
+                    </span>
+                  )}
+                </div>
                 <div
                   className="source-document"
                   role="region"
@@ -416,7 +466,9 @@ ${reportFindings.map((f, i) => `
                     <span className="label-caption">YOUR SUPPLIED DOCUMENT</span>
                     <p>Extracted text · Formatting may differ from the original</p>
                   </div>
-                  {view.document.blocks.map((block) => (
+                  {view.document.blocks
+                    .filter((block) => !matchingBlockIds || matchingBlockIds.has(block.id))
+                    .map((block) => (
                     <div
                       key={block.id}
                       id={`block-${block.id}`}
@@ -462,6 +514,11 @@ ${reportFindings.map((f, i) => `
                       </p>
                     </div>
                   ))}
+                  {matchingBlockIds !== null && matchingBlockIds.size === 0 && (
+                    <p className="source-search-empty">
+                      No matching text found. Try a shorter phrase.
+                    </p>
+                  )}
                 </div>
                 <div className="source-pane-footer">
                   <ShieldCheck size={13} /> Every highlight maps to exact source characters.

@@ -29,11 +29,52 @@ export function Intake() {
   const router = useRouter();
   const fileInput = useRef<HTMLInputElement>(null);
   const [inputMode, setInputMode] = useState<"text" | "file">("text");
-  const [text, setText] = useState("");
+  const [text, setText] = useState(() => {
+    // Restore draft text from sessionStorage on first render (client only).
+    if (typeof window === "undefined") return "";
+    try {
+      const raw = sessionStorage.getItem("tos-draft");
+      if (raw) {
+        const d = JSON.parse(raw) as { text?: string };
+        return d.text ?? "";
+      }
+    } catch { /* ignore */ }
+    return "";
+  });
   const [file, setFile] = useState<File | null>(null);
-  const [jurisdiction, setJurisdiction] = useState<Jurisdiction>("UNSPECIFIED");
-  const [category, setCategory] = useState<Category>("CONSUMER");
-  const [region, setRegion] = useState("");
+  const [jurisdiction, setJurisdiction] = useState<Jurisdiction>(() => {
+    if (typeof window === "undefined") return "UNSPECIFIED";
+    try {
+      const raw = sessionStorage.getItem("tos-draft");
+      if (raw) {
+        const d = JSON.parse(raw) as { jurisdiction?: Jurisdiction };
+        return d.jurisdiction ?? "UNSPECIFIED";
+      }
+    } catch { /* ignore */ }
+    return "UNSPECIFIED";
+  });
+  const [category, setCategory] = useState<Category>(() => {
+    if (typeof window === "undefined") return "CONSUMER";
+    try {
+      const raw = sessionStorage.getItem("tos-draft");
+      if (raw) {
+        const d = JSON.parse(raw) as { category?: Category };
+        return d.category ?? "CONSUMER";
+      }
+    } catch { /* ignore */ }
+    return "CONSUMER";
+  });
+  const [region, setRegion] = useState(() => {
+    if (typeof window === "undefined") return "";
+    try {
+      const raw = sessionStorage.getItem("tos-draft");
+      if (raw) {
+        const d = JSON.parse(raw) as { region?: string };
+        return typeof d.region === "string" ? d.region : "";
+      }
+    } catch { /* ignore */ }
+    return "";
+  });
   const [selectedSample, setSelectedSample] = useState<string | null>(null);
   const [config, setConfig] = useState<SessionConfig | null>(null);
   const [sessionError, setSessionError] = useState<string | null>(null);
@@ -56,6 +97,23 @@ export function Intake() {
       });
     return () => controller.abort();
   }, [retry]);
+
+  // Persist draft text and context to sessionStorage whenever they change.
+  useEffect(() => {
+    if (!hydrated) return;
+    try {
+      if (text || jurisdiction !== "UNSPECIFIED" || category !== "CONSUMER" || region) {
+        sessionStorage.setItem(
+          "tos-draft",
+          JSON.stringify({ text, jurisdiction, category, region }),
+        );
+      } else {
+        sessionStorage.removeItem("tos-draft");
+      }
+    } catch {
+      // sessionStorage may be unavailable in some contexts — silently skip.
+    }
+  }, [hydrated, text, jurisdiction, category, region]);
 
   function selectFile(candidate: File | undefined) {
     if (!candidate) return;
@@ -123,6 +181,7 @@ export function Intake() {
         category,
         region,
       });
+      try { sessionStorage.removeItem("tos-draft"); } catch { /* ignore */ }
       router.push(`/report/${result.id}`);
     } catch (cause) {
       setError(cause instanceof Error ? cause.message : "Analysis could not be started.");
