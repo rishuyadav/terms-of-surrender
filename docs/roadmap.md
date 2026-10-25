@@ -1,6 +1,6 @@
 # Delivery roadmap
 
-## 1. Evidence-first vertical slice
+## 1. Evidence-first vertical slice — implemented
 
 - Persistent Spring Boot API, private anonymous sessions, bounded text/PDF extraction.
 - Canonical source blocks and validated findings.
@@ -9,11 +9,14 @@
 - Next.js intake, sample agreement, responsive report, evidence navigation, deletion.
 - Unit/integration tests, frontend checks, CI, reproducible configuration.
 
-## 2. Ingestion reliability
+This milestone delivers text and native-text PDF ingestion, keyword-preview and optional model modes, and source-linked reports. It is not a public-beta safety certification. Model calls use a small provider adapter; a separate orchestration framework is intentionally unnecessary at this stage.
+
+## 2. Ingestion reliability — next
 
 - Sandboxed OCR with page quality signals and coordinate mapping.
 - Safe public URL ingestion with DNS/redirect SSRF defenses; no unrestricted browser fetcher.
 - DOCX import, extraction benchmarks, and partial-document warnings.
+- Move native PDF parsing out of the API process before accepting untrusted public uploads.
 
 ## 3. Jurisdiction and contract depth
 

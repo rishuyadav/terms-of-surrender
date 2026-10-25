@@ -24,6 +24,7 @@ Jobs are durable database records with explicit state transitions. Workers atomi
 
 - Anonymous sessions use random HttpOnly SameSite cookies; only token hashes are stored.
 - Every private-resource operation is scoped to the session, including SSE and deletion.
+- A document-free admission ledger retains hashed-session submission timestamps for at most one hour, so deletion cannot bypass per-session quotas.
 - Mutations require a trusted browser Origin to prevent cross-site requests. Production must configure the exact public origin and secure cookies.
 - File sizes, page counts, extracted text, queued jobs, and model calls are bounded.
 - Uploaded instructions are untrusted data, never system instructions.
