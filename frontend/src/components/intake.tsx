@@ -52,6 +52,9 @@ export function Intake() {
   function selectFile(candidate: File | undefined) {
     if (!candidate) return;
     setError(null);
+    // Rejected replacements must never leave an older agreement ready to submit.
+    setFile(null);
+    if (fileInput.current) fileInput.current.value = "";
     if (!candidate.name.toLowerCase().endsWith(".pdf")) {
       setError("Please select a PDF. Photos, DOCX, and web URLs are coming in a later release.");
       return;

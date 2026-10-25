@@ -19,6 +19,38 @@ class DocumentExtractorTest {
             "This agreement renews automatically each year unless written notice is received thirty days before renewal.";
 
     @Test
+    void acceptsExactCharacterLimitWithoutInsertingArtificialParagraphs() {
+        String source = "a".repeat(DocumentExtractor.MAX_CHARACTERS);
+        Document document = extractor.extract(source, null);
+        assertThat(document.text()).isEqualTo(source);
+        assertThat(document.blocks()).hasSize(40);
+        assertThat(
+                        document.blocks().stream()
+                                .map(Document.Block::text)
+                                .collect(java.util.stream.Collectors.joining()))
+                .isEqualTo(source);
+    }
+
+    @Test
+    void doesNotSplitUnicodeSurrogatePairsAtBlockBoundaries() {
+        String source = "a".repeat(1999) + "😀" + "z".repeat(100);
+        Document document = extractor.extract(source, null);
+        assertThat(document.text()).isEqualTo(source);
+        document.blocks()
+                .forEach(
+                        block -> {
+                            String roundTrip =
+                                    new String(
+                                            block.text()
+                                                    .getBytes(
+                                                            java.nio.charset.StandardCharsets
+                                                                    .UTF_8),
+                                            java.nio.charset.StandardCharsets.UTF_8);
+                            assertThat(roundTrip).isEqualTo(block.text());
+                        });
+    }
+
+    @Test
     void createsStableBlocksWithExactOffsets() {
         Document document = extractor.extract(TEXT + "\n\n" + TEXT, null);
         assertThat(document.blocks()).hasSize(2);

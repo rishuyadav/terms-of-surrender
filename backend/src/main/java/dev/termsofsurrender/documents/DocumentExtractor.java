@@ -96,30 +96,37 @@ public class DocumentExtractor {
                             .strip();
             int index = 0;
             for (String paragraph : clean.split("\\n\\s*\\n")) {
-                String remainder = paragraph.strip();
-                while (!remainder.isEmpty()) {
-                    int cut = Math.min(remainder.length(), MAX_BLOCK_CHARACTERS);
-                    if (cut < remainder.length()) {
-                        int whitespace = remainder.lastIndexOf(' ', cut);
-                        if (whitespace > cut / 2) {
+                String paragraphText = paragraph.strip();
+                if (paragraphText.isEmpty()) {
+                    continue;
+                }
+                if (!canonical.isEmpty()) {
+                    canonical.append("\n\n");
+                }
+                int paragraphStart = canonical.length();
+                canonical.append(paragraphText);
+                checkLength(canonical.length());
+                int offset = 0;
+                while (offset < paragraphText.length()) {
+                    int cut = Math.min(paragraphText.length(), offset + MAX_BLOCK_CHARACTERS);
+                    if (cut < paragraphText.length()) {
+                        int whitespace = paragraphText.lastIndexOf(' ', cut);
+                        if (whitespace > offset + MAX_BLOCK_CHARACTERS / 2) {
                             cut = whitespace;
                         }
+                        if (Character.isHighSurrogate(paragraphText.charAt(cut - 1))
+                                && Character.isLowSurrogate(paragraphText.charAt(cut))) {
+                            cut--;
+                        }
                     }
-                    String blockText = remainder.substring(0, cut).strip();
-                    remainder = remainder.substring(cut).strip();
-                    if (!canonical.isEmpty()) {
-                        canonical.append("\n\n");
-                    }
-                    int start = canonical.length();
-                    canonical.append(blockText);
-                    checkLength(canonical.length());
                     blocks.add(
                             new Document.Block(
                                     "p" + (page + 1) + "-b" + (++index),
                                     page + 1,
-                                    start,
-                                    canonical.length(),
-                                    blockText));
+                                    paragraphStart + offset,
+                                    paragraphStart + cut,
+                                    paragraphText.substring(offset, cut)));
+                    offset = cut;
                 }
             }
         }
