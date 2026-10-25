@@ -222,8 +222,11 @@ export function ReportViewer({ id }: { id: string }) {
                       {view.report?.mode === "RULE_BASED_PREVIEW"
                         ? "These are topics worth inspecting, not a verdict on whether the terms are harmful or enforceable."
                         : "Exact quotes are checked against your source. Interpretations can still be wrong."}{" "}
-                      US/India legal overlays are not enabled.
+                      No reviewed legal guidance is enabled; jurisdiction context shapes focus, not conclusions.
                     </span>
+                    {view.report?.contextLabel && view.report.contextLabel !== "Not specified" && (
+                      <span className="context-label-pill">{view.report.contextLabel}</span>
+                    )}
                   </div>
                 </div>
 

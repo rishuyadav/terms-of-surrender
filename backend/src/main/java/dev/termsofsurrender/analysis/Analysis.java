@@ -59,7 +59,8 @@ public final class Analysis {
             String engineVersion,
             List<Finding> findings,
             List<String> limitations,
-            boolean legalContextAvailable) {}
+            boolean legalContextAvailable,
+            String contextLabel) {}
 
     public record View(
             UUID id,

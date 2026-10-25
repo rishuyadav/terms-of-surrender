@@ -781,6 +781,18 @@ svg {
 .analysis-mode-banner.model strong {
   color: #52674b;
 }
+.context-label-pill {
+  display: inline-block;
+  margin-top: 8px;
+  padding: 2px 8px;
+  border-radius: 10px;
+  background: rgba(0, 0, 0, 0.07);
+  font-size: 9px;
+  font-weight: 600;
+  letter-spacing: 0.03em;
+  text-transform: uppercase;
+  white-space: nowrap;
+}
 .nutrition-label {
   display: flex;
   align-items: center;
