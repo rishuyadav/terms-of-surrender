@@ -127,7 +127,17 @@ public class IsolatedFileParser implements AutoCloseable {
                 throw ApiException.invalid("UPLOAD_TOO_LARGE", ERRORS.get("UPLOAD_TOO_LARGE"));
             }
             directory = Files.createTempDirectory("tos-parser-");
-            ProcessBuilder builder = new ProcessBuilder(command.apply(directory, format));
+            // Pass format as first arg; filename as optional second arg for title derivation.
+            List<String> cmd = command.apply(directory, format);
+            String originalFilename = file.getOriginalFilename();
+            if (originalFilename != null && !originalFilename.isBlank()
+                    && !originalFilename.contains("/") && !originalFilename.contains("\\")
+                    && originalFilename.length() <= 255) {
+                // Append filename only when using the real worker (test workers ignore extra args).
+                cmd = new java.util.ArrayList<>(cmd);
+                cmd.add(originalFilename);
+            }
+            ProcessBuilder builder = new ProcessBuilder(cmd);
             builder.directory(directory.toFile());
             builder.environment().clear();
             builder.environment().put("LANG", "C.UTF-8");
@@ -234,7 +244,9 @@ public class IsolatedFileParser implements AutoCloseable {
     }
 
     private void validate(Document document, String format) {
-        if (!"Uploaded agreement".equals(document.title())
+        if (document.title() == null
+                || document.title().isBlank()
+                || document.title().length() > 82  // 80 chars + possible ellipsis "…"
                 || !format.equals(document.sourceType())
                 || document.text() == null
                 || document.text().length() < 80

@@ -11,7 +11,7 @@ import java.util.stream.Collectors;
 final class ParserCommand {
     private ParserCommand() {}
 
-    static List<String> create(Path directory, String main, String argument) {
+    static List<String> create(Path directory, String main, String... arguments) {
         String classpath =
                 Arrays.stream(
                                 System.getProperty(
@@ -45,14 +45,15 @@ final class ParserCommand {
                     false,
                     ParserCommand.class.getClassLoader());
             command.add("-Dloader.main=" + main);
-            command.addAll(
-                    List.of(
-                            "-cp",
-                            classpath,
-                            "org.springframework.boot.loader.launch.PropertiesLauncher",
-                            argument));
+            command.add("-cp");
+            command.add(classpath);
+            command.add("org.springframework.boot.loader.launch.PropertiesLauncher");
+            command.addAll(Arrays.asList(arguments));
         } catch (ClassNotFoundException exception) {
-            command.addAll(List.of("-cp", classpath, main, argument));
+            command.add("-cp");
+            command.add(classpath);
+            command.add(main);
+            command.addAll(Arrays.asList(arguments));
         }
         return command;
     }
