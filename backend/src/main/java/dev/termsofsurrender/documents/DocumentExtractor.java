@@ -24,6 +24,7 @@ public class DocumentExtractor {
             throw ApiException.invalid("INVALID_INPUT", "Provide either pasted text or one PDF, not both.");
         }
         if (hasText) {
+            checkLength(text.length());
             return build("Pasted agreement", "TEXT", List.of(text), List.of());
         }
         return pdf(file);

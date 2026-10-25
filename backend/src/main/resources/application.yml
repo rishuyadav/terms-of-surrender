@@ -17,7 +17,7 @@ spring:
       pool:
         size: 3
 server:
-  port: ${PORT:8080}
+  port: ${PORT:8081}
   error:
     include-message: never
     include-stacktrace: never

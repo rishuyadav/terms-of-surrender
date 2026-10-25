@@ -9,14 +9,13 @@ import static org.mockito.Mockito.when;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import dev.termsofsurrender.AppProperties;
 import dev.termsofsurrender.documents.DocumentExtractor;
-import java.io.ByteArrayInputStream;
-import java.io.InputStream;
 import java.net.http.HttpClient;
 import java.net.http.HttpRequest;
 import java.net.http.HttpResponse;
 import java.nio.charset.StandardCharsets;
 import java.util.List;
 import java.util.Map;
+import java.util.concurrent.CompletableFuture;
 import org.junit.jupiter.api.Test;
 
 class ModelAnalysisEngineTest {
@@ -65,9 +64,10 @@ class ModelAnalysisEngineTest {
         byte[] body = mapper.writeValueAsString(Map.of("choices", List.of(Map.of("finish_reason", finishReason,
                 "message", Map.of("content", mapper.writeValueAsString(content)))))).getBytes(StandardCharsets.UTF_8);
         @SuppressWarnings("unchecked")
-        HttpResponse<InputStream> response = mock(HttpResponse.class);
+        HttpResponse<byte[]> response = mock(HttpResponse.class);
         when(response.statusCode()).thenReturn(status);
-        when(response.body()).thenReturn(new ByteArrayInputStream(body));
-        when(client.send(any(HttpRequest.class), org.mockito.ArgumentMatchers.<HttpResponse.BodyHandler<InputStream>>any())).thenReturn(response);
+        when(response.body()).thenReturn(body);
+        when(client.sendAsync(any(HttpRequest.class), org.mockito.ArgumentMatchers.<HttpResponse.BodyHandler<byte[]>>any()))
+                .thenReturn(CompletableFuture.completedFuture(response));
     }
 }

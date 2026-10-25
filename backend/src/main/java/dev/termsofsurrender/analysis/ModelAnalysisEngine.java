@@ -4,7 +4,6 @@ import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import dev.termsofsurrender.AppProperties;
 import dev.termsofsurrender.documents.Document;
-import java.io.InputStream;
 import java.net.URI;
 import java.net.http.HttpClient;
 import java.net.http.HttpRequest;
@@ -15,9 +14,13 @@ import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
+import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.ExecutionException;
+import java.util.concurrent.TimeUnit;
+import java.util.concurrent.TimeoutException;
 
 /** OpenAI-compatible adapter. Provider failures never silently downgrade to preview mode. */
-public class ModelAnalysisEngine implements AnalysisEngine {
+public class ModelAnalysisEngine implements AnalysisEngine, AutoCloseable {
     private static final int MAX_RESPONSE_BYTES = 262_144;
     private static final String SYSTEM_PROMPT = """
             You explain contract text; you do not provide legal advice or determine enforceability.
@@ -65,7 +68,11 @@ public class ModelAnalysisEngine implements AnalysisEngine {
         List<Analysis.Finding> findings = new ArrayList<>();
         Set<String> seen = new HashSet<>();
         int rejected = 0;
-        for (List<Document.Block> chunk : chunks(input.document().blocks())) {
+        List<List<Document.Block>> chunks = chunks(input.document().blocks());
+        if (chunks.size() > 12) {
+            throw new IllegalStateException("Document exceeds model request budget");
+        }
+        for (List<Document.Block> chunk : chunks) {
             JsonNode proposals = request(input.context(), chunk).path("findings");
             if (!proposals.isArray() || proposals.size() > 6) {
                 throw new IllegalStateException("Invalid model response shape");
@@ -110,6 +117,7 @@ public class ModelAnalysisEngine implements AnalysisEngine {
     }
 
     private JsonNode request(Analysis.Context context, List<Document.Block> blocks) {
+        CompletableFuture<HttpResponse<byte[]>> pending = null;
         try {
             String body = mapper.writeValueAsString(Map.of("model", config.name(), "max_completion_tokens", 3500,
                     "response_format", Map.of("type", "json_object"), "messages", List.of(
@@ -118,27 +126,32 @@ public class ModelAnalysisEngine implements AnalysisEngine {
             HttpRequest request = HttpRequest.newBuilder(URI.create(config.baseUrl().replaceAll("/+$", "") + "/chat/completions"))
                     .timeout(Duration.ofSeconds(35)).header("Authorization", "Bearer " + config.apiKey())
                     .header("Content-Type", "application/json").POST(HttpRequest.BodyPublishers.ofString(body)).build();
-            HttpResponse<InputStream> response = client.send(request, HttpResponse.BodyHandlers.ofInputStream());
-            try (InputStream stream = response.body()) {
-                if (response.statusCode() != 200) {
-                    throw new IllegalStateException("Model request failed");
-                }
-                byte[] bytes = stream.readNBytes(MAX_RESPONSE_BYTES + 1);
-                if (bytes.length > MAX_RESPONSE_BYTES) {
-                    throw new IllegalStateException("Model response exceeded limit");
-                }
-                JsonNode choice = mapper.readTree(bytes).path("choices").path(0);
-                if (!"stop".equals(choice.path("finish_reason").asText())) {
-                    throw new IllegalStateException("Model response incomplete");
-                }
-                return mapper.readTree(choice.path("message").path("content").asText());
+            pending = client.sendAsync(request, info -> new LimitedBodySubscriber(MAX_RESPONSE_BYTES));
+            // Unlike an InputStream read, this deadline also bounds receipt of the full response body.
+            HttpResponse<byte[]> response = pending.get(35, TimeUnit.SECONDS);
+            if (response.statusCode() != 200) {
+                throw new IllegalStateException("Model request failed");
             }
+            JsonNode choice = mapper.readTree(response.body()).path("choices").path(0);
+            if (!"stop".equals(choice.path("finish_reason").asText())) {
+                throw new IllegalStateException("Model response incomplete");
+            }
+            return mapper.readTree(choice.path("message").path("content").asText());
         } catch (InterruptedException exception) {
             Thread.currentThread().interrupt();
             throw new IllegalStateException("Model request interrupted");
-        } catch (java.io.IOException exception) {
+        } catch (java.io.IOException | ExecutionException | TimeoutException exception) {
             throw new IllegalStateException("Model request unavailable");
+        } finally {
+            if (pending != null && !pending.isDone()) {
+                pending.cancel(true);
+            }
         }
+    }
+
+    @Override
+    public void close() {
+        client.close();
     }
 
     private String required(JsonNode node, String field, int maxLength) {
@@ -157,13 +170,14 @@ public class ModelAnalysisEngine implements AnalysisEngine {
         List<Document.Block> current = new ArrayList<>();
         int length = 0;
         for (Document.Block block : blocks) {
-            if (length + block.text().length() > 10_000 && !current.isEmpty()) {
+            int blockSize = block.text().length() + 100; // Include JSON and source-anchor overhead.
+            if (length + blockSize > 10_000 && !current.isEmpty()) {
                 chunks.add(List.copyOf(current));
                 current.clear();
                 length = 0;
             }
             current.add(block);
-            length += block.text().length();
+            length += blockSize;
         }
         if (!current.isEmpty()) {
             chunks.add(List.copyOf(current));
