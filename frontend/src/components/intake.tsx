@@ -19,6 +19,7 @@ import {
   X,
 } from "lucide-react";
 import { Brand } from "./brand";
+import { ThemeToggle } from "./theme-toggle";
 import { createAnalysis, establishSession, fetchPageText } from "@/lib/api";
 import { samples } from "@/lib/samples";
 import type { Category, Jurisdiction, SessionConfig } from "@/lib/types";
@@ -234,6 +235,7 @@ export function Intake() {
           <span className="beta-badge">
             <span /> EARLY PREVIEW
           </span>
+          <ThemeToggle />
         </nav>
       </header>
 

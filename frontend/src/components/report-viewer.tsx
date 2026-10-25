@@ -28,6 +28,7 @@ import {
   X,
 } from "lucide-react";
 import { Brand } from "./brand";
+import { ThemeToggle } from "./theme-toggle";
 import { FindingCard } from "./finding-card";
 import { useAnalysis } from "@/hooks/use-analysis";
 import { deleteAnalysis, askContract } from "@/lib/api";
@@ -220,6 +221,7 @@ ${reportFindings.map((f, i) => `
       <header className="site-header report-header">
         <Brand />
         <div className="report-header-actions">
+          <ThemeToggle />
           <span className="private-badge">
             <LockKeyhole size={12} /> PRIVATE REPORT
           </span>
