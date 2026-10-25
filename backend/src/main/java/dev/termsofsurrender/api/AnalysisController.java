@@ -5,6 +5,7 @@ import dev.termsofsurrender.analysis.Analysis;
 import dev.termsofsurrender.documents.Document;
 import dev.termsofsurrender.documents.DocumentExtractor;
 import dev.termsofsurrender.documents.DocumentIngestion;
+import dev.termsofsurrender.documents.UrlFetcher;
 import dev.termsofsurrender.jobs.AnalysisRepository;
 import dev.termsofsurrender.privacy.Sessions;
 import jakarta.servlet.http.HttpServletRequest;
@@ -32,18 +33,21 @@ public class AnalysisController {
     private final DocumentIngestion extractor;
     private final AnalysisRepository repository;
     private final AnalysisStreams streams;
+    private final UrlFetcher urlFetcher;
 
     public AnalysisController(
             Sessions sessions,
             AppProperties properties,
             DocumentIngestion extractor,
             AnalysisRepository repository,
-            AnalysisStreams streams) {
+            AnalysisStreams streams,
+            UrlFetcher urlFetcher) {
         this.sessions = sessions;
         this.properties = properties;
         this.extractor = extractor;
         this.repository = repository;
         this.streams = streams;
+        this.urlFetcher = urlFetcher;
     }
 
     @GetMapping("/session")
@@ -62,6 +66,17 @@ public class AnalysisController {
                 DocumentExtractor.MAX_CHARACTERS);
     }
 
+    @GetMapping("/fetch")
+    Map<String, Object> fetchUrl(@RequestParam String url, HttpServletRequest request) {
+        sessions.require(request); // Must have a session; does not create one.
+        UrlFetcher.FetchResult result = urlFetcher.fetch(url);
+        return Map.of(
+                "title", result.title(),
+                "text", result.text(),
+                "sourceUrl", result.sourceUrl(),
+                "charCount", result.text().length());
+    }
+
     @PostMapping(value = "/analyses", consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
     ResponseEntity<Analysis.View> create(
             @RequestParam(required = false) String text,
@@ -71,6 +86,13 @@ public class AnalysisController {
             @RequestParam(defaultValue = "") String region,
             HttpServletRequest request) {
         String owner = sessions.require(request);
+        if (text != null
+                && (text.stripLeading().startsWith("http://")
+                        || text.stripLeading().startsWith("https://"))) {
+            throw ApiException.invalid(
+                    "URL_NOT_SUPPORTED",
+                    "Paste the page text rather than its URL, or use the fetch endpoint first.");
+        }
         if (region.length() > 80) {
             throw ApiException.invalid(
                     "INVALID_REGION", "Keep the state or region under 80 characters.");

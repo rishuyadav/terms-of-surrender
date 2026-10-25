@@ -10,6 +10,7 @@ import {
   FileText,
   FileUp,
   Fingerprint,
+  Globe,
   LoaderCircle,
   LockKeyhole,
   MoveUpRight,
@@ -18,7 +19,7 @@ import {
   X,
 } from "lucide-react";
 import { Brand } from "./brand";
-import { createAnalysis, establishSession } from "@/lib/api";
+import { createAnalysis, establishSession, fetchPageText } from "@/lib/api";
 import { samples } from "@/lib/samples";
 import type { Category, Jurisdiction, SessionConfig } from "@/lib/types";
 import { useHydrated } from "@/hooks/use-hydrated";
@@ -40,6 +41,11 @@ export function Intake() {
   const [submitting, setSubmitting] = useState(false);
   const [dragging, setDragging] = useState(false);
   const [retry, setRetry] = useState(0);
+  const [urlInput, setUrlInput] = useState("");
+  const [urlFetching, setUrlFetching] = useState(false);
+  const [urlError, setUrlError] = useState<string | null>(null);
+  const [fetchedTitle, setFetchedTitle] = useState<string | null>(null);
+  const [fetchedPreview, setFetchedPreview] = useState<string | null>(null);
 
   useEffect(() => {
     const controller = new AbortController();
@@ -58,7 +64,7 @@ export function Intake() {
     setFile(null);
     if (fileInput.current) fileInput.current.value = "";
     if (!/\.(pdf|docx)$/i.test(candidate.name)) {
-      setError("Please select a PDF or DOCX. Photos and web URLs aren’t supported yet.");
+      setError("Please select a PDF or DOCX. For web pages, paste the URL in the text tab.");
       return;
     }
     if (candidate.size > 10 * 1024 * 1024) {
@@ -69,9 +75,39 @@ export function Intake() {
     setSelectedSample(null);
   }
 
+  function looksLikeUrl(value: string): boolean {
+    const trimmed = value.trim();
+    return trimmed.startsWith("https://") && trimmed.length > 10 && !trimmed.includes("\n");
+  }
+
+  async function fetchUrl() {
+    setUrlFetching(true);
+    setUrlError(null);
+    setFetchedTitle(null);
+    setFetchedPreview(null);
+    try {
+      const result = await fetchPageText(urlInput);
+      setText(result.text);
+      setFetchedTitle(result.title);
+      setFetchedPreview(result.text.slice(0, 300));
+    } catch (cause) {
+      setUrlError(
+        cause instanceof Error
+          ? cause.message
+          : "The page could not be fetched. Paste the text directly.",
+      );
+    } finally {
+      setUrlFetching(false);
+    }
+  }
+
   async function submit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
     setError(null);
+    if (inputMode === "text" && urlInput && !text) {
+      setError("Fetch the page text first, or paste the text directly.");
+      return;
+    }
     if (inputMode === "text" && text.trim().length < 80) {
       setError("Paste at least 80 characters of contract text, or try a sample below.");
       return;
@@ -169,7 +205,94 @@ export function Intake() {
           </div>
 
           <form onSubmit={submit}>
-            {inputMode === "text" ? (
+            {inputMode === "text" && urlInput ? (
+              <div className="url-fetch-card">
+                <div className="url-fetch-header">
+                  <Globe size={16} />
+                  <span className="url-fetch-domain">
+                    {(() => {
+                      try {
+                        return new URL(urlInput).hostname;
+                      } catch {
+                        return urlInput;
+                      }
+                    })()}
+                  </span>
+                  <button
+                    type="button"
+                    className="text-button"
+                    onClick={() => {
+                      setUrlInput("");
+                      setUrlError(null);
+                      setFetchedTitle(null);
+                      setFetchedPreview(null);
+                      // Keep fetched text in the textarea so users can review/edit it.
+                      // If nothing was fetched yet, text is already empty.
+                    }}
+                  >
+                    <X size={13} /> {fetchedTitle ? "Edit extracted text" : "Use text instead"}
+                  </button>
+                </div>
+                <p className="url-fetch-address">
+                  {urlInput.length > 80 ? urlInput.slice(0, 80) + "…" : urlInput}
+                </p>
+
+                {fetchedTitle ? (
+                  <div className="url-fetched-result">
+                    <p className="url-fetched-title">{fetchedTitle}</p>
+                    {fetchedPreview && (
+                      <p className="url-fetched-preview">
+                        &ldquo;{fetchedPreview}
+                        {fetchedPreview.length >= 300 ? "…" : ""}&rdquo;
+                      </p>
+                    )}
+                    <p className="url-fetched-ready">
+                      <Check size={13} /> Text extracted — ready to analyze below
+                    </p>
+                  </div>
+                ) : (
+                  <div className="url-fetch-actions">
+                    <button
+                      type="button"
+                      className="secondary-button"
+                      disabled={urlFetching || !hydrated}
+                      onClick={fetchUrl}
+                    >
+                      {urlFetching ? (
+                        <>
+                          <LoaderCircle size={15} className="spin" /> Fetching page…
+                        </>
+                      ) : (
+                        <>
+                          <Globe size={15} /> Fetch page text
+                        </>
+                      )}
+                    </button>
+                    <span className="url-fetch-note">
+                      Only public HTTPS pages. Login-protected or JavaScript-only pages may not
+                      work.
+                    </span>
+                  </div>
+                )}
+
+                {urlError && (
+                  <div className="url-fetch-error">
+                    <p role="alert">{urlError}</p>
+                    <button
+                      type="button"
+                      className="text-button"
+                      onClick={() => {
+                        setUrlInput("");
+                        setUrlError(null);
+                        setText("");
+                      }}
+                    >
+                      Paste the text instead
+                    </button>
+                  </div>
+                )}
+              </div>
+            ) : inputMode === "text" ? (
               <div className="text-input-wrap">
                 <label htmlFor="contract-text" className="sr-only">
                   Contract text
@@ -180,11 +303,19 @@ export function Intake() {
                   value={text}
                   maxLength={config?.maxCharacters ?? 80000}
                   onChange={(event) => {
-                    setText(event.target.value);
+                    const value = event.target.value;
+                    setText(value);
                     setSelectedSample(null);
+                    if (looksLikeUrl(value)) {
+                      setUrlInput(value.trim());
+                      setText("");
+                      setUrlError(null);
+                      setFetchedTitle(null);
+                      setFetchedPreview(null);
+                    }
                   }}
                   placeholder={
-                    "Paste the terms you’re about to agree to…\n\nA subscription. A gym membership. That freelance contract sitting in your inbox."
+                    "Paste the terms you're about to agree to…\n\nA subscription. A gym membership. That freelance contract sitting in your inbox."
                   }
                   spellCheck={false}
                   aria-describedby="text-help"
@@ -396,6 +527,9 @@ export function Intake() {
                   setRegion(sample.context.region);
                   setSelectedSample(sample.id);
                   setError(null);
+                  setUrlInput("");
+                  setFetchedTitle(null);
+                  setFetchedPreview(null);
                 }}
               >
                 <span className="sample-card-icon">

@@ -7,7 +7,7 @@ import java.util.concurrent.CompletionStage;
 import java.util.concurrent.Flow;
 
 /** Bound provider responses before buffering them, including chunked HTTP responses. */
-final class LimitedBodySubscriber implements HttpResponse.BodySubscriber<byte[]> {
+public final class LimitedBodySubscriber implements HttpResponse.BodySubscriber<byte[]> {
     private final HttpResponse.BodySubscriber<byte[]> delegate =
             HttpResponse.BodySubscribers.ofByteArray();
     private final int maximum;
@@ -15,7 +15,7 @@ final class LimitedBodySubscriber implements HttpResponse.BodySubscriber<byte[]>
     private long received;
     private boolean failed;
 
-    LimitedBodySubscriber(int maximum) {
+    public LimitedBodySubscriber(int maximum) {
         this.maximum = maximum;
     }
 

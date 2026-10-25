@@ -63,3 +63,13 @@ export const fetchAnalysis = (id: string, signal?: AbortSignal) =>
 
 export const deleteAnalysis = (id: string) =>
   request<void>(`/api/analyses/${encodeURIComponent(id)}`, { method: "DELETE" });
+
+export interface FetchResult {
+  title: string;
+  text: string;
+  sourceUrl: string;
+  charCount: number;
+}
+
+export const fetchPageText = (url: string) =>
+  request<FetchResult>(`/api/fetch?url=${encodeURIComponent(url)}`);

@@ -1942,6 +1942,94 @@ summary::-webkit-details-marker {
   margin: 0;
 }
 
+/* URL fetch card */
+.url-fetch-card {
+  padding: 20px 24px;
+  background: #f7f7f2;
+  border: 1px solid #e2e2d8;
+  border-radius: 6px;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  min-height: 120px;
+}
+.url-fetch-header {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 11px;
+  color: var(--muted);
+}
+.url-fetch-domain {
+  font-weight: 600;
+  color: #4a5240;
+  font-size: 12px;
+}
+.url-fetch-address {
+  font-size: 10px;
+  color: #8a9080;
+  word-break: break-all;
+  margin: 0;
+  font-family: monospace;
+}
+.url-fetch-actions {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  flex-wrap: wrap;
+}
+.url-fetch-note {
+  font-size: 9px;
+  color: #9a9e8c;
+  max-width: 280px;
+  line-height: 1.5;
+}
+.url-fetched-result {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+.url-fetched-title {
+  font-size: 13px;
+  font-weight: 550;
+  color: #2a2e22;
+  margin: 0;
+}
+.url-fetched-preview {
+  font-size: 11px;
+  color: #6a7060;
+  line-height: 1.6;
+  margin: 0;
+  font-style: italic;
+  display: -webkit-box;
+  -webkit-line-clamp: 3;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+}
+.url-fetched-ready {
+  font-size: 10px;
+  color: #4a8060;
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  margin: 0;
+  font-weight: 500;
+}
+.url-fetch-error {
+  background: #fdf0f0;
+  border: 1px solid #f0d0d0;
+  border-radius: 6px;
+  padding: 10px 14px;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+.url-fetch-error p {
+  font-size: 11px;
+  color: #8b3030;
+  margin: 0;
+}
+
 @media (prefers-reduced-motion: reduce) {
   html {
     scroll-behavior: auto;
