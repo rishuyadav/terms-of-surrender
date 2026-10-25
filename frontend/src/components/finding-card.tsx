@@ -62,7 +62,7 @@ export function FindingCard({
       <div className="why-matters">
         <Lightbulb size={15} />
         <p>
-          <strong>Why look closer</strong>
+          <strong>Why look closer — </strong>
           {finding.whyItMatters}
         </p>
       </div>
