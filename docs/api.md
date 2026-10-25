@@ -23,13 +23,13 @@ The cookie is HttpOnly, SameSite=Lax, scoped to `/api`, and Secure when configur
 
 `POST /api/analyses` with `multipart/form-data`
 
-| Field | Values |
-| --- | --- |
-| `text` | At least 80 and at most 80,000 characters; mutually exclusive with file |
-| `file` | One text-based PDF, up to 10 MB and 40 pages |
-| `jurisdiction` | `US`, `INDIA`, `UNSPECIFIED` (default) |
-| `category` | `CONSUMER`, `FREELANCE`, `OTHER` (default) |
-| `region` | Optional descriptive text, up to 80 characters |
+| Field          | Values                                                                  |
+| -------------- | ----------------------------------------------------------------------- |
+| `text`         | At least 80 and at most 80,000 characters; mutually exclusive with file |
+| `file`         | One text-based PDF or `.docx`, up to 10 MB; PDFs up to 40 pages         |
+| `jurisdiction` | `US`, `INDIA`, `UNSPECIFIED` (default)                                  |
+| `category`     | `CONSUMER`, `FREELANCE`, `OTHER` (default)                              |
+| `region`       | Optional descriptive text, up to 80 characters                          |
 
 Requires the session cookie and an `Origin` exactly matching `ALLOWED_ORIGINS`. Origin-less CLI mutations are intentionally rejected; explicitly set the trusted origin when testing.
 
@@ -43,6 +43,16 @@ Returns `202 Accepted`, a `Location` header, and an analysis snapshot. Snapshot 
 - `createdAt`, `expiresAt`: ISO 8601 timestamps.
 
 Status transitions: `QUEUED → PROCESSING → COMPLETED | FAILED`. Processing has a ten-minute lease. Abandoned jobs fail explicitly rather than being retried indefinitely and incurring additional model charges.
+
+### DOCX import limits
+
+DOCX files are selected by a case-insensitive `.docx` filename and verified to contain a transitional WordprocessingML body in a ZIP package; MIME claims are not trusted. Strict OOXML documents must first be exported as ordinary Word DOCX or text-based PDF. The importer reads body paragraphs and tables only. It never downloads relationships, executes macros, or writes archive entries to disk. Macro-bearing packages and body tracked changes are rejected with `UNREADABLE_DOCX`; accept or reject revisions in Word before uploading.
+
+Extraction budgets: 256 ZIP entries, 16 MiB total expanded data, 4 MiB body XML, XML depth 128, 500,000 XML events, and the existing 80,000-character text limit. DTDs and XML entities are rejected. Expansion budgets are enforced while reading, not from untrusted ZIP size metadata. Unsupported, malformed, encrypted, or over-budget DOCX input returns a safe `400` Problem Detail. This is bounded text import, not full OOXML conformance validation or a hostile-file sandbox.
+
+Every DOCX snapshot includes warnings about omitted layout/content: headers, footers, footnotes, comments, images, text boxes, automatic numbering, and embedded/alternate content are not reconstructed. Field results may be stale and hidden text may be included. External hyperlinks contribute only visible body text. Compare with the original before relying on findings.
+
+`document.sourceType` can now be `TEXT`, `PDF`, or `DOCX`. For DOCX, the retained `pageCount: 1` and block `page: 1` identify a single logical extraction segment for compatibility with the current evidence schema—not a Word page. Only PDF references have physical page numbers; clients must label DOCX/TEXT references as extracted text. Original uploads are not retained.
 
 ## Read and watch
 

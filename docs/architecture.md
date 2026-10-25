@@ -10,7 +10,7 @@ Terms of Surrender answers: what does the agreement say, why might it matter, wh
 - `backend`: Java 21 / Spring Boot modular monolith; private sessions, bounded ingestion, persistent jobs, evidence validation, streaming, retention.
 - PostgreSQL for deployment; file-backed H2 for zero-infrastructure local development.
 - Model access is behind an analysis interface. The deterministic preview works offline and must never be labeled AI analysis.
-- Parsing happens before analysis. Text and PDF input are initially supported; OCR, URL ingestion, and DOCX need additional security and quality controls.
+- Parsing happens before analysis. Text, native-text PDF, and bounded DOCX body-text import are supported. DOCX omits layout/secondary content with explicit warnings and rejects tracked revisions. OCR and URL ingestion remain deferred; all file parsing still needs process isolation before unrestricted public uploads.
 
 ## Document model
 

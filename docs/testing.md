@@ -37,12 +37,15 @@ Coverage includes:
 
 - Every fictional sample and independent jurisdiction/category choices.
 - Actual generated PDFs, forged files, scanned-only and partial PDFs, and size/page limits.
+- Actual generated DOCX packages, tracked-change rejection/replacement, partial-import warnings, evidence navigation, and refresh recovery without fictitious Word page numbers.
 - Exact source navigation in both directions, filters, report downloads, clipboard success/fallback, and cancelled/confirmed deletion.
 - Private session headers, cross-session denial, CSRF rejection, and source HTML rendered as inert text.
 - Session/submission/read retries, SSE-disconnection polling, failed jobs, empty reports, and model-mode presentation.
 - Automated accessibility checks for intake, upload, preview reports, model reports, and failed-job states.
 
 Model-mode UI and failure scenarios use controlled responses. They do not certify a live AI provider's output quality or legal accuracy. External provider calls remain disabled throughout verification.
+
+`DocxTextExtractorTest` additionally checks paragraphs/tables, Unicode and exact offsets, omitted drawing/instruction content, malformed XML, XXE/DTD rejection, tracked revisions, macro-bearing packages, archive-entry/expanded-byte/XML-depth budgets, and exact/over-limit text. These synthetic cases are not a representative extraction-quality benchmark for arbitrary Word files.
 
 ## Isolated PostgreSQL/container stack
 

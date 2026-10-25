@@ -11,12 +11,22 @@
 
 This milestone delivers text and native-text PDF ingestion, keyword-preview and optional model modes, and source-linked reports. It is not a public-beta safety certification. Model calls use a small provider adapter; a separate orchestration framework is intentionally unnecessary at this stage.
 
-## 2. Ingestion reliability — next
+## 2. Ingestion reliability — in progress
+
+Delivered in the first increment:
+
+- DOCX body paragraph/table import with bounded ZIP inflation and XML parsing; no relationship fetching or file extraction.
+- Explicit partial-import warnings, tracked-change rejection, and source references that do not invent Word page numbers.
+- Synthetic extraction regressions and browser coverage for import, evidence navigation, refresh, and correction of rejected drafts.
+
+Remaining:
 
 - Sandboxed OCR with page quality signals and coordinate mapping.
 - Safe public URL ingestion with DNS/redirect SSRF defenses; no unrestricted browser fetcher.
-- DOCX import, extraction benchmarks, and partial-document warnings.
+- Extraction benchmarks against representative real-world PDFs and Word documents, including more complex layouts and omission detection.
 - Move native PDF parsing out of the API process before accepting untrusted public uploads.
+
+Next implementation order: isolate file parsing with hard process/resource limits; establish extraction benchmarks; then add OCR and safe URL ingestion as independently verified increments. DOCX text import does not complete this milestone or make the upload API ready for unrestricted public use.
 
 ## 3. Jurisdiction and contract depth
 
