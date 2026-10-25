@@ -83,6 +83,11 @@ public class ModelAnalysisEngine implements AnalysisEngine, AutoCloseable {
     }
 
     @Override
+    public String progressStage() {
+        return "Reviewing terms with AI…";
+    }
+
+    @Override
     public Analysis.Report analyze(Analysis.Input input) {
         List<Analysis.Finding> findings = new ArrayList<>();
         Set<String> seen = new HashSet<>();

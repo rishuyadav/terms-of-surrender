@@ -31,6 +31,7 @@ public class AnalysisWorker {
                 .ifPresent(
                         job -> {
                             try {
+                                repository.updateStage(job.id(), engine.progressStage());
                                 repository.complete(job.id(), engine.analyze(job.input()));
                             } catch (Exception exception) {
                                 LOG.warn(

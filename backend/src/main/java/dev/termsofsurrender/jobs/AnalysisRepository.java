@@ -130,6 +130,13 @@ public class AnalysisRepository {
         return Optional.empty();
     }
 
+    public void updateStage(UUID id, String stage) {
+        jdbc.update(
+                "UPDATE analyses SET stage = ?, version = version + 1 WHERE id = ? AND status = 'PROCESSING'",
+                stage,
+                id.toString());
+    }
+
     public void complete(UUID id, Analysis.Report report) {
         Instant now = Instant.now();
         jdbc.update(

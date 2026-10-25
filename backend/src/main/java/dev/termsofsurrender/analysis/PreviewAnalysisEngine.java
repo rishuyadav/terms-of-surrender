@@ -170,6 +170,11 @@ public class PreviewAnalysisEngine implements AnalysisEngine {
   }
 
   @Override
+  public String progressStage() {
+    return "Scanning for keywords…";
+  }
+
+  @Override
   public Analysis.Report analyze(Analysis.Input input) {
     Analysis.Category category =
         input.context().category() != null ? input.context().category() : Analysis.Category.OTHER;

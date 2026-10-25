@@ -182,13 +182,28 @@ export function ReportViewer({ id }: { id: string }) {
                     ? "Your agreement is in the queue."
                     : "Reading between the lines."}
                 </h2>
-                <p>{view.stage}. You can refresh this page without losing progress.</p>
+                <p className="processing-stage">
+                  {reconnecting ? "Reconnecting…" : view.stage}
+                  {!reconnecting && <span className="stage-dots" aria-hidden="true" />}
+                </p>
+                {view.status === "PROCESSING" && !view.report && (
+                  <p className="processing-hint">
+                    AI analysis takes 15–30 seconds. You can refresh this page without losing
+                    progress.
+                  </p>
+                )}
+                {view.status === "QUEUED" && (
+                  <p className="processing-hint">
+                    You can refresh this page without losing progress.
+                  </p>
+                )}
                 <div className="processing-steps">
                   <span className="complete">
                     <Check size={14} /> Document received
                   </span>
                   <span>
-                    <LoaderCircle size={14} className="spin" /> Checking terms
+                    <LoaderCircle size={14} className="spin" />{" "}
+                    {view.status === "QUEUED" ? "Waiting in queue" : "Checking terms"}
                   </span>
                   <span className="muted">Source-backed report</span>
                 </div>
