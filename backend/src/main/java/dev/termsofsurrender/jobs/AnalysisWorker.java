@@ -14,7 +14,8 @@ public class AnalysisWorker {
     private final AnalysisEngine engine;
     private final AppProperties properties;
 
-    public AnalysisWorker(AnalysisRepository repository, AnalysisEngine engine, AppProperties properties) {
+    public AnalysisWorker(
+            AnalysisRepository repository, AnalysisEngine engine, AppProperties properties) {
         this.repository = repository;
         this.engine = engine;
         this.properties = properties;
@@ -25,14 +26,20 @@ public class AnalysisWorker {
         if (!properties.workerEnabled()) {
             return;
         }
-        repository.claim().ifPresent(job -> {
-            try {
-                repository.complete(job.id(), engine.analyze(job.input()));
-            } catch (Exception exception) {
-                LOG.warn("Analysis {} failed with {}", job.id(), exception.getClass().getSimpleName());
-                repository.fail(job.id());
-            }
-        });
+        repository
+                .claim()
+                .ifPresent(
+                        job -> {
+                            try {
+                                repository.complete(job.id(), engine.analyze(job.input()));
+                            } catch (Exception exception) {
+                                LOG.warn(
+                                        "Analysis {} failed with {}",
+                                        job.id(),
+                                        exception.getClass().getSimpleName());
+                                repository.fail(job.id());
+                            }
+                        });
     }
 
     @Scheduled(fixedDelay = 60_000)

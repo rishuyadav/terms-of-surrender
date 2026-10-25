@@ -8,7 +8,8 @@ import java.util.concurrent.Flow;
 
 /** Bound provider responses before buffering them, including chunked HTTP responses. */
 final class LimitedBodySubscriber implements HttpResponse.BodySubscriber<byte[]> {
-    private final HttpResponse.BodySubscriber<byte[]> delegate = HttpResponse.BodySubscribers.ofByteArray();
+    private final HttpResponse.BodySubscriber<byte[]> delegate =
+            HttpResponse.BodySubscribers.ofByteArray();
     private final int maximum;
     private Flow.Subscription subscription;
     private long received;

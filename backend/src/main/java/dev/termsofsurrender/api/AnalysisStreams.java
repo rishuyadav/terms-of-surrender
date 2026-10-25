@@ -21,47 +21,61 @@ public class AnalysisStreams {
 
     public synchronized SseEmitter open(UUID analysisId, String owner) {
         repository.find(analysisId, owner).orElseThrow(ApiException::notFound);
-        long ownStreams = subscriptions.values().stream().filter(value -> value.owner.equals(owner)).count();
+        long ownStreams =
+                subscriptions.values().stream().filter(value -> value.owner.equals(owner)).count();
         if (subscriptions.size() >= 100 || ownStreams >= 3) {
-            throw new ApiException(HttpStatus.TOO_MANY_REQUESTS, "STREAM_LIMIT", "Too many report connections. Close another tab and retry.");
+            throw new ApiException(
+                    HttpStatus.TOO_MANY_REQUESTS,
+                    "STREAM_LIMIT",
+                    "Too many report connections. Close another tab and retry.");
         }
         SseEmitter emitter = new SseEmitter(110_000L);
         UUID subscriptionId = UUID.randomUUID();
         Subscription subscription = new Subscription(analysisId, owner, emitter);
         subscriptions.put(subscriptionId, subscription);
         emitter.onCompletion(() -> subscriptions.remove(subscriptionId));
-        emitter.onTimeout(() -> {
-            subscriptions.remove(subscriptionId);
-            emitter.complete();
-        });
+        emitter.onTimeout(
+                () -> {
+                    subscriptions.remove(subscriptionId);
+                    emitter.complete();
+                });
         emitter.onError(error -> subscriptions.remove(subscriptionId));
         return emitter;
     }
 
     @Scheduled(fixedDelay = 1_000)
     public void publishSnapshots() {
-        subscriptions.forEach((id, subscription) -> {
-            try {
-                var snapshot = repository.find(subscription.analysisId, subscription.owner);
-                if (snapshot.isEmpty()) {
-                    subscription.emitter.send(SseEmitter.event().name("unavailable").data("Report deleted or expired"));
-                    finish(id, subscription);
-                    return;
-                }
-                Analysis.View view = snapshot.get();
-                if (view.version() != subscription.lastVersion) {
-                    subscription.emitter.send(SseEmitter.event().name("snapshot").id(Integer.toString(view.version())).data(view));
-                    subscription.lastVersion = view.version();
-                } else if (++subscription.ticks % 15 == 0) {
-                    subscription.emitter.send(SseEmitter.event().comment("keep-alive"));
-                }
-                if (view.status() == Analysis.Status.COMPLETED || view.status() == Analysis.Status.FAILED) {
-                    finish(id, subscription);
-                }
-            } catch (IOException | IllegalStateException exception) {
-                finish(id, subscription);
-            }
-        });
+        subscriptions.forEach(
+                (id, subscription) -> {
+                    try {
+                        var snapshot = repository.find(subscription.analysisId, subscription.owner);
+                        if (snapshot.isEmpty()) {
+                            subscription.emitter.send(
+                                    SseEmitter.event()
+                                            .name("unavailable")
+                                            .data("Report deleted or expired"));
+                            finish(id, subscription);
+                            return;
+                        }
+                        Analysis.View view = snapshot.get();
+                        if (view.version() != subscription.lastVersion) {
+                            subscription.emitter.send(
+                                    SseEmitter.event()
+                                            .name("snapshot")
+                                            .id(Integer.toString(view.version()))
+                                            .data(view));
+                            subscription.lastVersion = view.version();
+                        } else if (++subscription.ticks % 15 == 0) {
+                            subscription.emitter.send(SseEmitter.event().comment("keep-alive"));
+                        }
+                        if (view.status() == Analysis.Status.COMPLETED
+                                || view.status() == Analysis.Status.FAILED) {
+                            finish(id, subscription);
+                        }
+                    } catch (IOException | IllegalStateException exception) {
+                        finish(id, subscription);
+                    }
+                });
     }
 
     private void finish(UUID id, Subscription subscription) {

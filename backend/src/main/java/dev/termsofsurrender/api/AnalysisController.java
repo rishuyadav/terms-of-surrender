@@ -32,8 +32,12 @@ public class AnalysisController {
     private final AnalysisRepository repository;
     private final AnalysisStreams streams;
 
-    public AnalysisController(Sessions sessions, AppProperties properties, DocumentExtractor extractor,
-                              AnalysisRepository repository, AnalysisStreams streams) {
+    public AnalysisController(
+            Sessions sessions,
+            AppProperties properties,
+            DocumentExtractor extractor,
+            AnalysisRepository repository,
+            AnalysisStreams streams) {
         this.sessions = sessions;
         this.properties = properties;
         this.extractor = extractor;
@@ -44,9 +48,17 @@ public class AnalysisController {
     @GetMapping("/session")
     Map<String, Object> session(HttpServletRequest request, HttpServletResponse response) {
         sessions.establish(request, response);
-        return Map.of("mode", properties.model().enabled() ? Analysis.Mode.MODEL_ASSISTED : Analysis.Mode.RULE_BASED_PREVIEW,
-                "retentionHours", properties.retentionHours(), "legalContextAvailable", false,
-                "maxCharacters", DocumentExtractor.MAX_CHARACTERS);
+        return Map.of(
+                "mode",
+                properties.model().enabled()
+                        ? Analysis.Mode.MODEL_ASSISTED
+                        : Analysis.Mode.RULE_BASED_PREVIEW,
+                "retentionHours",
+                properties.retentionHours(),
+                "legalContextAvailable",
+                false,
+                "maxCharacters",
+                DocumentExtractor.MAX_CHARACTERS);
     }
 
     @PostMapping(value = "/analyses", consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
@@ -59,12 +71,15 @@ public class AnalysisController {
             HttpServletRequest request) {
         String owner = sessions.require(request);
         if (region.length() > 80) {
-            throw ApiException.invalid("INVALID_REGION", "Keep the state or region under 80 characters.");
+            throw ApiException.invalid(
+                    "INVALID_REGION", "Keep the state or region under 80 characters.");
         }
         Document document = extractor.extract(text, file);
         Analysis.Context context = new Analysis.Context(jurisdiction, category, region.strip());
         Analysis.View view = repository.create(owner, new Analysis.Input(document, context));
-        return ResponseEntity.accepted().location(URI.create("/api/analyses/" + view.id())).body(view);
+        return ResponseEntity.accepted()
+                .location(URI.create("/api/analyses/" + view.id()))
+                .body(view);
     }
 
     @GetMapping("/analyses/{id}")

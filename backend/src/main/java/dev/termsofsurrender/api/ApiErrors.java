@@ -22,23 +22,37 @@ public class ApiErrors {
 
     @ExceptionHandler(MaxUploadSizeExceededException.class)
     ProblemDetail uploadTooLarge() {
-        return problem(HttpStatus.PAYLOAD_TOO_LARGE, "UPLOAD_TOO_LARGE", "Upload a PDF smaller than 10 MB.");
+        return problem(
+                HttpStatus.PAYLOAD_TOO_LARGE,
+                "UPLOAD_TOO_LARGE",
+                "Upload a PDF smaller than 10 MB.");
     }
 
-    @ExceptionHandler({MethodArgumentTypeMismatchException.class, MissingServletRequestPartException.class})
+    @ExceptionHandler({
+        MethodArgumentTypeMismatchException.class,
+        MissingServletRequestPartException.class
+    })
     ProblemDetail invalidRequest() {
-        return problem(HttpStatus.BAD_REQUEST, "INVALID_REQUEST", "Check the supplied fields and try again.");
+        return problem(
+                HttpStatus.BAD_REQUEST,
+                "INVALID_REQUEST",
+                "Check the supplied fields and try again.");
     }
 
     @ExceptionHandler(Exception.class)
     ProblemDetail unexpected(Exception exception) {
         if (exception instanceof ErrorResponse response) {
-            return problem(HttpStatus.valueOf(response.getStatusCode().value()), "INVALID_REQUEST",
+            return problem(
+                    HttpStatus.valueOf(response.getStatusCode().value()),
+                    "INVALID_REQUEST",
                     "The requested resource, HTTP method, or request format is not supported.");
         }
         // Never log request bodies, extracted contract text, or exception messages from providers.
         LOG.error("Unhandled API failure: {}", exception.getClass().getSimpleName());
-        return problem(HttpStatus.INTERNAL_SERVER_ERROR, "INTERNAL_ERROR", "Something went wrong. Please try again.");
+        return problem(
+                HttpStatus.INTERNAL_SERVER_ERROR,
+                "INTERNAL_ERROR",
+                "Something went wrong. Please try again.");
     }
 
     private ProblemDetail problem(HttpStatus status, String code, String message) {

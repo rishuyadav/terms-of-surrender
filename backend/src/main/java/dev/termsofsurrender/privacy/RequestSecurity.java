@@ -21,7 +21,8 @@ public class RequestSecurity extends OncePerRequestFilter {
     }
 
     @Override
-    protected void doFilterInternal(HttpServletRequest request, HttpServletResponse response, FilterChain chain)
+    protected void doFilterInternal(
+            HttpServletRequest request, HttpServletResponse response, FilterChain chain)
             throws ServletException, IOException {
         response.setHeader("X-Content-Type-Options", "nosniff");
         response.setHeader("Referrer-Policy", "no-referrer");
@@ -31,9 +32,11 @@ public class RequestSecurity extends OncePerRequestFilter {
                     && !properties.allowedOrigins().contains(request.getHeader("Origin"))) {
                 response.setStatus(403);
                 response.setContentType(MediaType.APPLICATION_PROBLEM_JSON_VALUE);
-                response.getWriter().write("{\"title\":\"UNTRUSTED_ORIGIN\",\"status\":403,"
-                        + "\"detail\":\"This request must originate from the application.\","
-                        + "\"code\":\"UNTRUSTED_ORIGIN\"}");
+                response.getWriter()
+                        .write(
+                                "{\"title\":\"UNTRUSTED_ORIGIN\",\"status\":403,"
+                                        + "\"detail\":\"This request must originate from the application.\","
+                                        + "\"code\":\"UNTRUSTED_ORIGIN\"}");
                 return;
             }
         }

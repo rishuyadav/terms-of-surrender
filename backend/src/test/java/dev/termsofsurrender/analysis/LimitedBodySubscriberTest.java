@@ -18,7 +18,8 @@ class LimitedBodySubscriberTest {
         subscriber.onSubscribe(subscription);
         subscriber.onNext(List.of(ByteBuffer.wrap(new byte[5])));
         verify(subscription).cancel();
-        assertThatThrownBy(() -> subscriber.getBody().toCompletableFuture().join()).hasCauseInstanceOf(IllegalStateException.class);
+        assertThatThrownBy(() -> subscriber.getBody().toCompletableFuture().join())
+                .hasCauseInstanceOf(IllegalStateException.class);
     }
 
     @Test

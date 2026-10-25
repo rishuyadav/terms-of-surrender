@@ -33,9 +33,16 @@ public class Sessions {
             random.nextBytes(bytes);
             token = Base64.getUrlEncoder().withoutPadding().encodeToString(bytes);
         }
-        response.addHeader(HttpHeaders.SET_COOKIE, ResponseCookie.from(COOKIE, token)
-                .httpOnly(true).secure(properties.secureCookies()).sameSite("Lax").path("/api")
-                .maxAge(Duration.ofHours(properties.retentionHours())).build().toString());
+        response.addHeader(
+                HttpHeaders.SET_COOKIE,
+                ResponseCookie.from(COOKIE, token)
+                        .httpOnly(true)
+                        .secure(properties.secureCookies())
+                        .sameSite("Lax")
+                        .path("/api")
+                        .maxAge(Duration.ofHours(properties.retentionHours()))
+                        .build()
+                        .toString());
         return hash(token);
     }
 
@@ -50,7 +57,8 @@ public class Sessions {
     private String read(HttpServletRequest request) {
         if (request.getCookies() != null) {
             for (Cookie cookie : request.getCookies()) {
-                if (COOKIE.equals(cookie.getName()) && cookie.getValue().matches("[A-Za-z0-9_-]{43}")) {
+                if (COOKIE.equals(cookie.getName())
+                        && cookie.getValue().matches("[A-Za-z0-9_-]{43}")) {
                     return cookie.getValue();
                 }
             }
@@ -60,8 +68,10 @@ public class Sessions {
 
     public static String hash(String value) {
         try {
-            return HexFormat.of().formatHex(MessageDigest.getInstance("SHA-256")
-                    .digest(value.getBytes(StandardCharsets.UTF_8)));
+            return HexFormat.of()
+                    .formatHex(
+                            MessageDigest.getInstance("SHA-256")
+                                    .digest(value.getBytes(StandardCharsets.UTF_8)));
         } catch (NoSuchAlgorithmException exception) {
             throw new IllegalStateException("SHA-256 is required by the Java runtime", exception);
         }

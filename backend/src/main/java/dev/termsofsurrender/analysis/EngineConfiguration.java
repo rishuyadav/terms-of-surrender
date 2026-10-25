@@ -8,7 +8,8 @@ import org.springframework.context.annotation.Configuration;
 @Configuration
 public class EngineConfiguration {
     @Bean
-    AnalysisEngine analysisEngine(AppProperties properties, ObjectMapper mapper, EvidenceValidator validator) {
+    AnalysisEngine analysisEngine(
+            AppProperties properties, ObjectMapper mapper, EvidenceValidator validator) {
         return properties.model().enabled()
                 ? new ModelAnalysisEngine(properties.model(), mapper, validator)
                 : new PreviewAnalysisEngine(validator);

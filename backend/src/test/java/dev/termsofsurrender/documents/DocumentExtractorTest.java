@@ -15,29 +15,46 @@ import org.springframework.mock.web.MockMultipartFile;
 
 class DocumentExtractorTest {
     private final DocumentExtractor extractor = new DocumentExtractor();
-    private static final String TEXT = "This agreement renews automatically each year unless written notice is received thirty days before renewal.";
+    private static final String TEXT =
+            "This agreement renews automatically each year unless written notice is received thirty days before renewal.";
 
     @Test
     void createsStableBlocksWithExactOffsets() {
         Document document = extractor.extract(TEXT + "\n\n" + TEXT, null);
         assertThat(document.blocks()).hasSize(2);
-        document.blocks().forEach(block -> assertThat(document.text().substring(block.start(), block.end())).isEqualTo(block.text()));
-        assertThat(extractor.extract(TEXT + "\n\n" + TEXT, null).fingerprint()).isEqualTo(document.fingerprint());
+        document.blocks()
+                .forEach(
+                        block ->
+                                assertThat(document.text().substring(block.start(), block.end()))
+                                        .isEqualTo(block.text()));
+        assertThat(extractor.extract(TEXT + "\n\n" + TEXT, null).fingerprint())
+                .isEqualTo(document.fingerprint());
     }
 
     @Test
     void rejectsAmbiguousEmptyAndOversizeInput() {
         assertThatThrownBy(() -> extractor.extract("short", null)).isInstanceOf(ApiException.class);
-        assertThatThrownBy(() -> extractor.extract("x".repeat(80_001), null)).isInstanceOf(ApiException.class);
+        assertThatThrownBy(() -> extractor.extract("x".repeat(80_001), null))
+                .isInstanceOf(ApiException.class);
         assertThatThrownBy(() -> extractor.extract(null, null)).isInstanceOf(ApiException.class);
-        MockMultipartFile fake = new MockMultipartFile("file", "contract.pdf", "application/pdf", TEXT.getBytes(java.nio.charset.StandardCharsets.UTF_8));
-        assertThatThrownBy(() -> extractor.extract(null, fake)).isInstanceOf(ApiException.class).hasMessageContaining("text-based PDFs");
-        assertThatThrownBy(() -> extractor.extract(TEXT, fake)).isInstanceOf(ApiException.class).hasMessageContaining("not both");
+        MockMultipartFile fake =
+                new MockMultipartFile(
+                        "file",
+                        "contract.pdf",
+                        "application/pdf",
+                        TEXT.getBytes(java.nio.charset.StandardCharsets.UTF_8));
+        assertThatThrownBy(() -> extractor.extract(null, fake))
+                .isInstanceOf(ApiException.class)
+                .hasMessageContaining("text-based PDFs");
+        assertThatThrownBy(() -> extractor.extract(TEXT, fake))
+                .isInstanceOf(ApiException.class)
+                .hasMessageContaining("not both");
     }
 
     @Test
     void extractsActualPdfAndRejectsScans() throws Exception {
-        try (PDDocument pdf = new PDDocument(); ByteArrayOutputStream output = new ByteArrayOutputStream()) {
+        try (PDDocument pdf = new PDDocument();
+                ByteArrayOutputStream output = new ByteArrayOutputStream()) {
             PDPage page = new PDPage();
             pdf.addPage(page);
             try (PDPageContentStream content = new PDPageContentStream(pdf, page)) {
@@ -48,15 +65,29 @@ class DocumentExtractorTest {
                 content.endText();
             }
             pdf.save(output);
-            Document document = extractor.extract(null, new MockMultipartFile("file", "x.pdf", "application/pdf", output.toByteArray()));
+            Document document =
+                    extractor.extract(
+                            null,
+                            new MockMultipartFile(
+                                    "file", "x.pdf", "application/pdf", output.toByteArray()));
             assertThat(document.text()).contains("renews automatically");
             assertThat(document.pageCount()).isEqualTo(1);
         }
-        try (PDDocument pdf = new PDDocument(); ByteArrayOutputStream output = new ByteArrayOutputStream()) {
+        try (PDDocument pdf = new PDDocument();
+                ByteArrayOutputStream output = new ByteArrayOutputStream()) {
             pdf.addPage(new PDPage());
             pdf.save(output);
-            assertThatThrownBy(() -> extractor.extract(null, new MockMultipartFile("file", "scan.pdf", "application/pdf", output.toByteArray())))
-                    .isInstanceOf(ApiException.class).hasMessageContaining("OCR");
+            assertThatThrownBy(
+                            () ->
+                                    extractor.extract(
+                                            null,
+                                            new MockMultipartFile(
+                                                    "file",
+                                                    "scan.pdf",
+                                                    "application/pdf",
+                                                    output.toByteArray())))
+                    .isInstanceOf(ApiException.class)
+                    .hasMessageContaining("OCR");
         }
     }
 }

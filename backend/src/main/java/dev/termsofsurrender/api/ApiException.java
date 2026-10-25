@@ -12,14 +12,20 @@ public class ApiException extends RuntimeException {
         this.code = code;
     }
 
-    public HttpStatus status() { return status; }
-    public String code() { return code; }
+    public HttpStatus status() {
+        return status;
+    }
+
+    public String code() {
+        return code;
+    }
 
     public static ApiException invalid(String code, String message) {
         return new ApiException(HttpStatus.BAD_REQUEST, code, message);
     }
 
     public static ApiException notFound() {
-        return new ApiException(HttpStatus.NOT_FOUND, "NOT_FOUND", "This report is unavailable or has expired.");
+        return new ApiException(
+                HttpStatus.NOT_FOUND, "NOT_FOUND", "This report is unavailable or has expired.");
     }
 }
