@@ -1,0 +1,23 @@
+# Local credentials and runtime data
+.env
+.env.*
+!.env.example
+.data/
+*.log
+.DS_Store
+
+# Java
+backend/target/
+
+# Node
+frontend/node_modules/
+frontend/.next/
+frontend/coverage/
+frontend/playwright-report/
+frontend/test-results/
+frontend/next-env.d.ts
+*.tsbuildinfo
+
+# Editors
+.idea/
+.vscode/
