@@ -11,7 +11,7 @@ test("intake and upload controls pass automated accessibility checks", async ({
   expect(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth)).toBe(
     true,
   );
-  await page.getByRole("button", { name: "Upload PDF", exact: true }).click();
+  await page.getByRole("button", { name: "Upload PDF / DOCX", exact: true }).click();
   expect((await new AxeBuilder({ page }).analyze()).violations).toEqual([]);
 });
 

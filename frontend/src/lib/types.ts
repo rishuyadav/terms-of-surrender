@@ -19,7 +19,7 @@ export interface SourceBlock {
 
 export interface ContractDocument {
   title: string;
-  sourceType: "TEXT" | "PDF";
+  sourceType: "TEXT" | "PDF" | "DOCX";
   fingerprint: string;
   text: string;
   blocks: SourceBlock[];

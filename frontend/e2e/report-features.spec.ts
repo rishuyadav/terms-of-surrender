@@ -5,9 +5,9 @@ import type { AnalysisView } from "../src/lib/types";
 
 test("uploads an actual PDF and shows verified page evidence", async ({ page }) => {
   await page.goto("/");
-  await page.getByRole("button", { name: "Upload PDF", exact: true }).click();
+  await page.getByRole("button", { name: "Upload PDF / DOCX", exact: true }).click();
   await page
-    .getByLabel("Upload contract PDF")
+    .getByLabel("Upload contract PDF or DOCX")
     .setInputFiles({ name: "agreement.pdf", mimeType: "application/pdf", buffer: pdfFixture() });
   await expect(page.getByText("agreement.pdf", { exact: true })).toBeVisible();
   await page.getByRole("button", { name: "Read the fine print" }).click();
@@ -23,17 +23,17 @@ test("uploads an actual PDF and shows verified page evidence", async ({ page }) 
 
 test("rejects a forged PDF, then permits replacing it with a valid file", async ({ page }) => {
   await page.goto("/");
-  await page.getByRole("button", { name: "Upload PDF", exact: true }).click();
-  await page.getByLabel("Upload contract PDF").setInputFiles({
+  await page.getByRole("button", { name: "Upload PDF / DOCX", exact: true }).click();
+  await page.getByLabel("Upload contract PDF or DOCX").setInputFiles({
     name: "forged.pdf",
     mimeType: "application/pdf",
     buffer: Buffer.from("This is not a PDF"),
   });
   await page.getByRole("button", { name: "Read the fine print" }).click();
-  await expect(page.locator("#main").getByRole("alert")).toContainText("Only text-based PDFs");
+  await expect(page.locator("#main").getByRole("alert")).toContainText("text-based PDF or DOCX");
   await page.getByRole("button", { name: "Remove file" }).click();
   await page
-    .getByLabel("Upload contract PDF")
+    .getByLabel("Upload contract PDF or DOCX")
     .setInputFiles({ name: "valid.pdf", mimeType: "application/pdf", buffer: pdfFixture() });
   await page.getByRole("button", { name: "Read the fine print" }).click();
   await expect(page.getByText("Keyword preview, not an AI or legal assessment.")).toBeVisible({
@@ -43,8 +43,8 @@ test("rejects a forged PDF, then permits replacing it with a valid file", async 
 
 test("rejects scanned-only PDFs and warns about partially unreadable PDFs", async ({ page }) => {
   await page.goto("/");
-  await page.getByRole("button", { name: "Upload PDF", exact: true }).click();
-  const input = page.getByLabel("Upload contract PDF");
+  await page.getByRole("button", { name: "Upload PDF / DOCX", exact: true }).click();
+  const input = page.getByLabel("Upload contract PDF or DOCX");
   await input.setInputFiles({
     name: "scan.pdf",
     mimeType: "application/pdf",
@@ -73,8 +73,8 @@ test("rejects scanned-only PDFs and warns about partially unreadable PDFs", asyn
 
 test("enforces file-size and page-count limits", async ({ page }) => {
   await page.goto("/");
-  await page.getByRole("button", { name: "Upload PDF", exact: true }).click();
-  const input = page.getByLabel("Upload contract PDF");
+  await page.getByRole("button", { name: "Upload PDF / DOCX", exact: true }).click();
+  const input = page.getByLabel("Upload contract PDF or DOCX");
   await input.setInputFiles({
     name: "large.pdf",
     mimeType: "application/pdf",

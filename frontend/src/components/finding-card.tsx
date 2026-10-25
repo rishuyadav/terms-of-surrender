@@ -23,11 +23,13 @@ export function FindingCard({
   index,
   selected,
   onSelect,
+  sourceType = "PDF",
 }: {
   finding: Finding;
   index: number;
   selected: boolean;
   onSelect: () => void;
+  sourceType?: "TEXT" | "PDF" | "DOCX";
 }) {
   const [copied, setCopied] = useState(false);
   const [copyError, setCopyError] = useState(false);
@@ -68,7 +70,11 @@ export function FindingCard({
         <summary>
           <span>
             Exact wording{" "}
-            <span className="muted">· page {finding.evidence.blockId.split("-")[0].slice(1)}</span>
+            <span className="muted">
+              {sourceType === "PDF"
+                ? `· page ${finding.evidence.blockId.split("-")[0].slice(1)}`
+                : "· extracted text"}
+            </span>
           </span>
           <ChevronDown size={15} />
         </summary>

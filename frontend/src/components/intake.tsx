@@ -55,12 +55,12 @@ export function Intake() {
     // Rejected replacements must never leave an older agreement ready to submit.
     setFile(null);
     if (fileInput.current) fileInput.current.value = "";
-    if (!candidate.name.toLowerCase().endsWith(".pdf")) {
-      setError("Please select a PDF. Photos, DOCX, and web URLs are coming in a later release.");
+    if (!/\.(pdf|docx)$/i.test(candidate.name)) {
+      setError("Please select a PDF or DOCX. Photos and web URLs aren’t supported yet.");
       return;
     }
     if (candidate.size > 10 * 1024 * 1024) {
-      setError("Please select a PDF smaller than 10 MB.");
+      setError("Please select a document smaller than 10 MB.");
       return;
     }
     setFile(candidate);
@@ -75,7 +75,7 @@ export function Intake() {
       return;
     }
     if (inputMode === "file" && !file) {
-      setError("Choose a PDF to continue.");
+      setError("Choose a PDF or DOCX to continue.");
       return;
     }
     setSubmitting(true);
@@ -158,10 +158,10 @@ export function Intake() {
                   setError(null);
                 }}
               >
-                <FileUp size={16} /> Upload PDF
+                <FileUp size={16} /> Upload PDF / DOCX
               </button>
             </div>
-            <span className="input-limit">ENGLISH · UP TO 40 PAGES</span>
+            <span className="input-limit">ENGLISH · UP TO 80,000 CHARACTERS</span>
           </div>
 
           <form onSubmit={submit}>
@@ -210,10 +210,10 @@ export function Intake() {
                 <input
                   ref={fileInput}
                   id="contract-file"
-                  aria-label="Upload contract PDF"
+                  aria-label="Upload contract PDF or DOCX"
                   className="sr-only"
                   type="file"
-                  accept=".pdf,application/pdf"
+                  accept=".pdf,.docx,application/pdf,application/vnd.openxmlformats-officedocument.wordprocessingml.document"
                   onChange={(event) => selectFile(event.target.files?.[0])}
                 />
                 {file ? (
@@ -240,15 +240,18 @@ export function Intake() {
                       <FileUp size={25} />
                     </span>
                     <strong>Drop your agreement here</strong>
-                    <p>Text-based PDF · Up to 10 MB and 40 pages</p>
+                    <p>PDF or DOCX · Up to 10 MB · PDFs up to 40 pages</p>
                     <button
                       type="button"
                       className="secondary-button"
                       onClick={() => fileInput.current?.click()}
                     >
-                      Choose a PDF <ArrowRight size={15} />
+                      Choose a document <ArrowRight size={15} />
                     </button>
-                    <span className="upload-note">Scans and photos aren’t supported yet.</span>
+                    <span className="upload-note">
+                      Scans and photos aren’t supported yet. DOCX reads body text and tables; accept
+                      or reject tracked changes first.
+                    </span>
                   </>
                 )}
               </div>

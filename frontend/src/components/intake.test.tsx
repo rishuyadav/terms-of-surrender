@@ -22,11 +22,32 @@ beforeEach(() => {
 });
 
 describe("contract intake", () => {
+  it("accepts a DOCX file and submits it with the selected context", async () => {
+    vi.mocked(createAnalysis).mockResolvedValueOnce({ id: "docx-report" } as Awaited<
+      ReturnType<typeof createAnalysis>
+    >);
+    const user = userEvent.setup();
+    render(<Intake />);
+    await user.click(screen.getByRole("button", { name: "Upload PDF / DOCX" }));
+    const docx = new File(["fixture body"], "agreement.DOCX", {
+      type: "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+    });
+    await user.upload(screen.getByLabelText("Upload contract PDF or DOCX"), docx);
+    await user.selectOptions(screen.getByLabelText("Your location"), "US");
+    await user.selectOptions(screen.getByLabelText("Agreement type"), "FREELANCE");
+    await user.click(screen.getByRole("button", { name: "Read the fine print" }));
+    expect(createAnalysis).toHaveBeenCalledWith(
+      { file: docx },
+      { jurisdiction: "US", category: "FREELANCE", region: "" },
+    );
+    expect(push).toHaveBeenCalledWith("/report/docx-report");
+  });
+
   it("clears a previously valid file when its replacement is invalid", async () => {
     const user = userEvent.setup({ applyAccept: false });
     render(<Intake />);
-    await user.click(screen.getByRole("button", { name: "Upload PDF" }));
-    const input = screen.getByLabelText("Upload contract PDF");
+    await user.click(screen.getByRole("button", { name: "Upload PDF / DOCX" }));
+    const input = screen.getByLabelText("Upload contract PDF or DOCX");
     await user.upload(
       input,
       new File(["%PDF-sample"], "old-agreement.pdf", { type: "application/pdf" }),
@@ -75,8 +96,8 @@ describe("contract intake", () => {
   it("rejects an oversized drop without keeping another file selected", async () => {
     const user = userEvent.setup();
     render(<Intake />);
-    await user.click(screen.getByRole("button", { name: "Upload PDF" }));
-    const input = screen.getByLabelText("Upload contract PDF");
+    await user.click(screen.getByRole("button", { name: "Upload PDF / DOCX" }));
+    const input = screen.getByLabelText("Upload contract PDF or DOCX");
     await user.upload(
       input,
       new File(["%PDF-sample"], "old-agreement.pdf", { type: "application/pdf" }),

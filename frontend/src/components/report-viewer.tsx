@@ -292,8 +292,10 @@ export function ReportViewer({ id }: { id: string }) {
                     <h2 id="source-title">The original wording</h2>
                   </div>
                   <span>
-                    {view.document.sourceType} · {view.document.pageCount}{" "}
-                    {view.document.pageCount === 1 ? "PAGE" : "PAGES"}
+                    {view.document.sourceType} ·{" "}
+                    {view.document.sourceType === "PDF"
+                      ? `${view.document.pageCount} ${view.document.pageCount === 1 ? "PAGE" : "PAGES"}`
+                      : "EXTRACTED TEXT"}
                   </span>
                 </div>
                 <div
@@ -312,8 +314,17 @@ export function ReportViewer({ id }: { id: string }) {
                       id={`block-${block.id}`}
                       className={`source-block${findings.some((finding) => finding.id === selected && finding.evidence.blockId === block.id) ? " focused" : ""}`}
                     >
-                      <span className="block-page" aria-label={`Page ${block.page}`}>
-                        {String(block.page).padStart(2, "0")}
+                      <span
+                        className="block-page"
+                        aria-label={
+                          view.document.sourceType === "PDF"
+                            ? `Page ${block.page}`
+                            : `Text block ${block.id}`
+                        }
+                      >
+                        {view.document.sourceType === "PDF"
+                          ? String(block.page).padStart(2, "0")
+                          : "§"}
                       </span>
                       <p>
                         {sourceSegments(block, findings).map((segment) =>
@@ -403,6 +414,7 @@ export function ReportViewer({ id }: { id: string }) {
                         <FindingCard
                           key={finding.id}
                           finding={finding}
+                          sourceType={view.document.sourceType}
                           index={index}
                           selected={selected === finding.id}
                           onSelect={() => selectFinding(finding)}
