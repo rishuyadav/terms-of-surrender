@@ -95,8 +95,12 @@ def main():
         assert status == 200 and "no-store" in headers["Cache-Control"]
         print("PASS: session isolation, CSRF defense, and private response headers")
 
-        subprocess.run([args.engine, "compose", "-p", "tos-verification", "-f", "compose.yml", "-f",
-                        "compose.verification.yml", "restart", "backend"], check=True, capture_output=True)
+        # podman-compose does not support `compose restart <service>` — use the engine directly.
+        container = subprocess.check_output([args.engine, "ps", "-q",
+                                             "--filter", "label=com.docker.compose.project=tos-verification",
+                                             "--filter", "label=com.docker.compose.service=backend"], text=True).strip()
+        assert container and "\n" not in container, "Expected exactly one verification backend"
+        subprocess.run([args.engine, "restart", container], check=True, capture_output=True)
         await_success(client, "/api/analyses/" + report_id)
         assert await_report(client, report_id)["document"]["text"] == source
         print("PASS: PostgreSQL report and ownership survive API container restart")

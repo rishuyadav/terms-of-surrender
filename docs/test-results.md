@@ -1,6 +1,7 @@
 # Verification results — 2026-10-25
 
 This records the initial vertical-slice verification before DOCX support. See [DOCX increment verification](docx-verification.md) for the newer implementation and test results.
+The later [parser process isolation results](parser-verification.md) cover the current worker boundary and deployment limits.
 
 Scope: the implemented evidence-first preview, not the unimplemented features in the original brainstorm or a certification of legal accuracy.
 

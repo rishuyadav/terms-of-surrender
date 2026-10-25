@@ -13,20 +13,22 @@ This milestone delivers text and native-text PDF ingestion, keyword-preview and 
 
 ## 2. Ingestion reliability — in progress
 
-Delivered in the first increment:
+Delivered increments:
 
 - DOCX body paragraph/table import with bounded ZIP inflation and XML parsing; no relationship fetching or file extraction.
 - Explicit partial-import warnings, tracked-change rejection, and source references that do not invent Word page numbers.
 - Synthetic extraction regressions and browser coverage for import, evidence navigation, refresh, and correction of rejected drafts.
+- PDF/DOCX extraction moved out of the API JVM into single-request worker JVMs, with bounded input/output, memory regions, concurrency, deadline, cleanup, and failure validation; no in-process fallback.
+- Container-level aggregate resource/filesystem hardening and real child-process failure tests. This is failure isolation, not a complete OS security sandbox; see [the boundary and limits](parser-isolation.md).
 
 Remaining:
 
 - Sandboxed OCR with page quality signals and coordinate mapping.
 - Safe public URL ingestion with DNS/redirect SSRF defenses; no unrestricted browser fetcher.
 - Extraction benchmarks against representative real-world PDFs and Word documents, including more complex layouts and omission detection.
-- Move native PDF parsing out of the API process before accepting untrusted public uploads.
+- Add independently reviewed, distinct-identity filesystem/network sandboxing and per-worker OS resource enforcement before unrestricted public uploads.
 
-Next implementation order: isolate file parsing with hard process/resource limits; establish extraction benchmarks; then add OCR and safe URL ingestion as independently verified increments. DOCX text import does not complete this milestone or make the upload API ready for unrestricted public use.
+Next implementation order: establish extraction benchmarks and strengthen the OS sandbox boundary; then add OCR and safe URL ingestion as independently verified increments. Neither DOCX text import nor child-JVM failure isolation completes this milestone or makes the upload API ready for unrestricted public use.
 
 ## 3. Jurisdiction and contract depth
 

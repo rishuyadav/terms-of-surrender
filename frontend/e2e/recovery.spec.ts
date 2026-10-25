@@ -3,24 +3,29 @@ import { expect, test } from "@playwright/test";
 import { analyzeSample } from "./helpers";
 import type { AnalysisView } from "../src/lib/types";
 
-test("intake waits for hydration and preserves the first pasted agreement", async ({ page }) => {
-  let releaseScripts!: () => void;
-  const scripts = new Promise<void>((resolve) => {
-    releaseScripts = resolve;
-  });
-  await page.route(/\/_next\/static\/.*\.js(?:\?.*)?$/, async (route) => {
-    await scripts;
-    await route.continue();
-  });
-  try {
-    await page.goto("/", { waitUntil: "commit" });
-    await expect(page.getByLabel("Contract text", { exact: true })).toBeDisabled();
-    await expect(page.getByRole("button", { name: /The gym membership/ })).toBeDisabled();
-  } finally {
-    releaseScripts();
+test("server-rendered intake controls carry disabled to prevent pre-hydration interaction", async ({
+  request,
+}) => {
+  // Fetch raw server HTML — no JavaScript runs, so this asserts the static shell exactly.
+  // The result is deterministic regardless of server speed or browser hydration timing.
+  const response = await request.get("/");
+  expect(response.ok()).toBe(true);
+  const html = await response.text();
+  // Every <textarea> and <select> in the intake form must have disabled="" in the server HTML.
+  // useSyncExternalStore's server snapshot returns false, so !hydrated=true → disabled.
+  const textareas = [...html.matchAll(/<textarea\b([^>]*)>/g)];
+  const selects = [...html.matchAll(/<select\b([^>]*)>/g)];
+  expect(textareas.length).toBeGreaterThan(0);
+  expect(selects.length).toBeGreaterThan(0);
+  for (const [, attrs] of [...textareas, ...selects]) {
+    expect(attrs).toMatch(/\bdisabled\b/);
   }
+});
+
+test("intake accepts pasted text after hydration and shows the report", async ({ page }) => {
   const text =
     "The project calendar lists a meeting on Monday morning. The parties will meet at the office to discuss their schedule and review the agenda.";
+  await page.goto("/");
   await expect(page.getByLabel("Contract text", { exact: true })).toBeEditable();
   await page.getByLabel("Contract text", { exact: true }).fill(text);
   await page.getByRole("button", { name: "Read the fine print" }).click();

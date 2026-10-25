@@ -1,5 +1,7 @@
 # DOCX ingestion increment — 2026-10-25
 
+This records the DOCX import increment before the later [parser process boundary](parser-isolation.md). Its in-process limitation below is historical; current PDF/DOCX uploads use child JVMs, with additional OS sandboxing still required.
+
 This increment adds bounded DOCX body-text import. It does **not** complete the ingestion-reliability milestone or certify unrestricted public uploads.
 
 ## Verified checks

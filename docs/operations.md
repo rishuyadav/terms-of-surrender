@@ -30,8 +30,9 @@ Spring Boot reads exported environment variables, not the root `.env` file autom
 - Report deletion does not reset hourly allowances. Admission timestamps expire after one hour.
 - Anonymous quotas are not abuse prevention by themselves: anyone can start a new session. Enforce independent IP/ingress/global spending limits before public exposure.
 - Expired rows and admission metadata are purged every minute. A live worker can briefly retain an in-memory copy after deletion. Database files, WAL, backups, model providers, and local downloads have separate retention properties; deletion is not cryptographic erasure.
-- No original PDFs are retained. Extraction runs in the API process in this slice. Strict upload limits are not a substitute for sandboxing hostile parsers.
-- Original DOCX uploads are also discarded after text extraction. DOCX uses the JDK ZIP/StAX readers with bounded expansion and disabled XML external entities; no office suite, network fetcher, or new runtime dependency is required. It still runs in-process, so process isolation remains a prerequisite for unrestricted public uploads. See [DOCX limits](api.md#docx-import-limits) for omissions and rejection behavior.
+- Original PDF/DOCX uploads are not retained. Both file formats are parsed in short-lived worker JVMs, with two slots per API instance, 128 MiB child heaps, a 20-second deadline, and bounded pipe input/output. Failures never fall back to in-process parsing. Plain-text analysis does not use these slots. See [parser isolation](parser-isolation.md) for deployment budgets, failure codes, and remaining security limits.
+- DOCX uses the JDK ZIP/StAX readers with bounded expansion and disabled XML external entities; no office suite, network fetcher, or new runtime dependency is required. See [DOCX limits](api.md#docx-import-limits) for omissions and rejection behavior.
+- Compose reserves 1536 MiB aggregate backend memory, two CPUs, and 192 PIDs; the API heap is 256 MiB. The backend root is read-only with a 128 MiB `/tmp` tmpfs, dropped capabilities, and no privilege escalation. Workers still share the API's OS identity and network; this is not a distinct-identity hostile-code sandbox. Local non-container runs do not inherit cgroup/disk limits.
 - The servlet accepts at most 10 MB per file and 11 MB per multipart request. Tomcat drains at most 12 MB on rejection to deliver a clean `413` for nearby over-limit requests without enabling unbounded body draining. Much larger malicious requests may be disconnected; enforce a hard limit at the public ingress too.
 - Failed jobs are not automatically retried. Persisted queued jobs survive restarts; abandoned processing jobs fail when their lease expires.
 - `/actuator/health` exposes liveness/database health without private details. Put it behind the internal network in production.
@@ -39,7 +40,8 @@ Spring Boot reads exported environment variables, not the root `.env` file autom
 ## Before a public beta
 
 - [ ] Run container and PostgreSQL integration tests in the target environment.
-- [ ] Put file parsing in a resource-limited isolated worker with a hard processing deadline.
+- [x] Move file parsing outside the API JVM, with bounded I/O, concurrency, Java memory regions, and a processing deadline.
+- [ ] Add and independently review distinct-identity, filesystem/network-restricted file-worker sandboxing; verify per-worker OS resource limits in the target environment.
 - [ ] Enforce HTTPS, secure cookies, exact origins, and ingress request/rate limits.
 - [ ] Apply provider-level spending caps and review document retention/training terms.
 - [ ] Configure SSE proxy timeouts and disable proxy buffering for event streams.

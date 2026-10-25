@@ -33,6 +33,8 @@ The cookie is HttpOnly, SameSite=Lax, scoped to `/api`, and Secure when configur
 
 Requires the session cookie and an `Origin` exactly matching `ALLOWED_ORIGINS`. Origin-less CLI mutations are intentionally rejected; explicitly set the trusted origin when testing.
 
+PDF/DOCX parsing runs outside the API JVM. File extraction has two slots per API instance and a 20-second worker deadline. A busy parser returns `429 PARSER_BUSY`, deadline expiry returns `422 PARSER_TIMEOUT`, and a failed/unavailable worker returns `503 PARSER_UNAVAILABLE`. No analysis record or admission-ledger entry is created when extraction fails. Plain-text analysis remains independent of file workers. See [the process boundary](parser-isolation.md) for budgets and limitations.
+
 Returns `202 Accepted`, a `Location` header, and an analysis snapshot. Snapshot fields:
 
 - `id`, `status`, `stage`, `version`.
@@ -46,7 +48,7 @@ Status transitions: `QUEUED → PROCESSING → COMPLETED | FAILED`. Processing h
 
 ### DOCX import limits
 
-DOCX files are selected by a case-insensitive `.docx` filename and verified to contain a transitional WordprocessingML body in a ZIP package; MIME claims are not trusted. Strict OOXML documents must first be exported as ordinary Word DOCX or text-based PDF. The importer reads body paragraphs and tables only. It never downloads relationships, executes macros, or writes archive entries to disk. Macro-bearing packages and body tracked changes are rejected with `UNREADABLE_DOCX`; accept or reject revisions in Word before uploading.
+DOCX files are selected by a case-insensitive `.docx` filename and verified to contain a transitional WordprocessingML body in a ZIP package; MIME claims are not trusted. Strict OOXML documents must first be exported as ordinary Word DOCX or text-based PDF. The importer reads body paragraphs and tables only. It never downloads relationships, executes macros, or writes archive entries to disk. Macro-bearing packages are rejected with `UNREADABLE_DOCX`; body tracked changes use the more specific `DOCX_TRACKED_CHANGES`. Accept or reject revisions in Word before uploading.
 
 Extraction budgets: 256 ZIP entries, 16 MiB total expanded data, 4 MiB body XML, XML depth 128, 500,000 XML events, and the existing 80,000-character text limit. DTDs and XML entities are rejected. Expansion budgets are enforced while reading, not from untrusted ZIP size metadata. Unsupported, malformed, encrypted, or over-budget DOCX input returns a safe `400` Problem Detail. This is bounded text import, not full OOXML conformance validation or a hostile-file sandbox.
 

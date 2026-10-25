@@ -9,6 +9,7 @@ The first vertical slice is implemented. This is an early preview, not a complet
 ### Available now
 
 - Pasted text, text-based PDFs, and DOCX body text/tables, with bounded input and extraction warnings.
+- Short-lived PDF/DOCX parser processes with bounded memory regions, I/O, concurrency, and execution time; no in-process fallback.
 - Independent US/India location and consumer/freelance agreement choices.
 - Offline keyword preview, or explicitly enabled OpenAI-compatible model analysis.
 - Exact evidence validation, source highlights, topic filters, and practical questions.
@@ -98,6 +99,8 @@ See [API documentation](docs/api.md) for endpoints and [operations](docs/operati
 See [testing](docs/testing.md) for the cross-browser matrix and isolated PostgreSQL/container verification commands.
 The latest recorded outcomes and their limitations are in [verification results](docs/test-results.md).
 DOCX import and its limits are covered in the [ingestion increment results](docs/docx-verification.md).
+See [parser isolation](docs/parser-isolation.md) for the new process boundary, deployment resource budgets, and why a reviewed OS sandbox is still required before unrestricted public uploads.
+Its latest verification results are recorded in [parser verification](docs/parser-verification.md).
 
 ## Trust boundaries
 

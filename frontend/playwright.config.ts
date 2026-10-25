@@ -10,7 +10,10 @@ export default defineConfig({
   reporter: process.env.CI ? "github" : "list",
   use: {
     baseURL: process.env.E2E_BASE_URL ?? "http://localhost:13000",
-    trace: "retain-on-failure",
+    // "on-first-retry" writes the trace during the retry pass, avoiding a race where the
+    // browser process exits before Playwright finishes flushing the trace zip from the
+    // initial run — a spurious ENOENT that triggers failOnFlakyTests in CI.
+    trace: "on-first-retry",
   },
   projects: [
     { name: "desktop", use: { ...devices["Desktop Chrome"] } },

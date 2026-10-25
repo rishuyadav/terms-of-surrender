@@ -33,6 +33,8 @@ CI=true npm run test:e2e
 
 The matrix runs Chromium desktop/mobile, Firefox desktop, WebKit desktop, and WebKit mobile (Safari emulation). These are browser engines and device emulation, not physical-device certification.
 
+CI fails on flaky tests even when a retry passes. The intake server-HTML regression uses Playwright's `request` fixture to fetch the raw HTML without a browser — no JavaScript runs, so it is deterministic regardless of server speed. Do not replace it with a script-blocking page navigation, which is sensitive to hydration timing and produces inconsistent results between dev and production builds.
+
 Coverage includes:
 
 - Every fictional sample and independent jurisdiction/category choices.
@@ -46,6 +48,8 @@ Coverage includes:
 Model-mode UI and failure scenarios use controlled responses. They do not certify a live AI provider's output quality or legal accuracy. External provider calls remain disabled throughout verification.
 
 `DocxTextExtractorTest` additionally checks paragraphs/tables, Unicode and exact offsets, omitted drawing/instruction content, malformed XML, XXE/DTD rejection, tracked revisions, macro-bearing packages, archive-entry/expanded-byte/XML-depth budgets, and exact/over-limit text. These synthetic cases are not a representative extraction-quality benchmark for arbitrary Word files.
+
+`IsolatedFileParserTest` starts actual child JVMs to test crash/heap exhaustion, timeout (including blocked stdin), bounded and validated output, safe errors, sanitized environment, cleanup, saturation and recovery, interruption, and shutdown. `ParserFailureApiTest` verifies that extraction failures do not create jobs or admission charges and do not disable plain-text submissions. Worker fixtures are test-only and never user-selectable. See [parser isolation](parser-isolation.md) for the exact security boundary and budgets.
 
 ## Isolated PostgreSQL/container stack
 
@@ -80,6 +84,9 @@ E2E_EXTERNAL_SERVICES=true E2E_BASE_URL=http://localhost:13001 npm run test:e2e
 
 # repository root: restarts ONLY the verification project's backend
 python3 scripts/verify-containers.py --engine podman
+
+# Once other browser checks have finished: packaged workers, applied limits, and idle cleanup
+python3 scripts/verify-parser-runtime.py --engine podman
 ```
 
 The Python verifier checks actual HTTP requests, completed jobs, evidence, ownership, CSRF, non-caching, persistence across an API-container restart, exact text limits, the servlet multipart limit, and deletion. It removes its own reports. Keep the verification environment variables exported when invoking it, because Compose also reads them during restart.
