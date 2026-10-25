@@ -1,5 +1,7 @@
 package dev.termsofsurrender.documents;
 
+import com.fasterxml.jackson.databind.JsonNode;
+import com.fasterxml.jackson.databind.ObjectMapper;
 import dev.termsofsurrender.api.ApiException;
 import java.net.InetAddress;
 import java.net.URI;
@@ -7,10 +9,14 @@ import java.net.http.HttpClient;
 import java.net.http.HttpRequest;
 import java.net.http.HttpResponse;
 import java.time.Duration;
+import java.util.ArrayList;
+import java.util.List;
 import java.util.Set;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.TimeoutException;
+import java.util.regex.Matcher;
+import java.util.regex.Pattern;
 import org.jsoup.Jsoup;
 import org.jsoup.nodes.Document;
 import org.springframework.stereotype.Component;
@@ -30,18 +36,46 @@ public class UrlFetcher {
 
     public record FetchResult(String title, String text, String sourceUrl, boolean truncated) {}
 
+    // Patterns to find embedded JSON blobs that may contain the actual page content.
+    // Many SPAs (React/Vue/Next.js) embed their server-side data in a script tag.
+    private static final List<Pattern> EMBEDDED_JSON_PATTERNS =
+            List.of(
+                    // Myntra: window["__myx_staticPage__"] = {...}
+                    Pattern.compile(
+                            "window\\[\"__myx_staticPage__\"\\]\\s*=\\s*(\\{.*?\\});",
+                            Pattern.DOTALL),
+                    // Next.js: <script id="__NEXT_DATA__" type="application/json">{...}</script>
+                    Pattern.compile(
+                            "<script[^>]+id=['\"]__NEXT_DATA__['\"][^>]*>(.*?)</script>",
+                            Pattern.DOTALL),
+                    // Generic: window.__INITIAL_STATE__ = {...}
+                    Pattern.compile(
+                            "window\\.__INITIAL_STATE__\\s*=\\s*(\\{.*?\\});", Pattern.DOTALL),
+                    // Generic: window.__PRELOADED_STATE__ = {...}
+                    Pattern.compile(
+                            "window\\.__PRELOADED_STATE__\\s*=\\s*(\\{.*?\\});", Pattern.DOTALL));
+
+    // Strip markdown formatting (**bold**, # headers, [link](url), *italic*)
+    private static final Pattern MD_BOLD = Pattern.compile("\\*\\*(.+?)\\*\\*", Pattern.DOTALL);
+    private static final Pattern MD_ITALIC = Pattern.compile("\\*(.+?)\\*", Pattern.DOTALL);
+    private static final Pattern MD_HEADER = Pattern.compile("^#{1,6}\\s+", Pattern.MULTILINE);
+    private static final Pattern MD_LINK = Pattern.compile("\\[([^\\]]+)\\]\\([^)]+\\)");
+
     private final HttpClient client;
+    private final ObjectMapper mapper;
 
     public UrlFetcher() {
         this(
                 HttpClient.newBuilder()
                         .connectTimeout(Duration.ofSeconds(CONNECT_TIMEOUT_S))
                         .followRedirects(HttpClient.Redirect.NEVER)
-                        .build());
+                        .build(),
+                new ObjectMapper());
     }
 
-    UrlFetcher(HttpClient client) {
+    UrlFetcher(HttpClient client, ObjectMapper mapper) {
         this.client = client;
+        this.mapper = mapper;
     }
 
     public FetchResult fetch(String rawUrl) {
@@ -128,7 +162,8 @@ public class UrlFetcher {
     }
 
     private FetchResult extract(byte[] body, String sourceUrl) {
-        Document doc = Jsoup.parse(new String(body, java.nio.charset.StandardCharsets.UTF_8));
+        String rawHtml = new String(body, java.nio.charset.StandardCharsets.UTF_8);
+        Document doc = Jsoup.parse(rawHtml);
 
         // Remove nav, header, footer, scripts, ads — keep main content
         doc.select(
@@ -144,23 +179,31 @@ public class UrlFetcher {
                         "main, [role=main], article, "
                                 + ".terms-content, .legal-content, .policy-content, #terms, #privacy, "
                                 + "#content, .content, .container");
-        org.jsoup.nodes.Element body2 = main != null ? main : doc.body();
-        if (body2 == null) {
-            throw ApiException.invalid(
-                    "URL_NO_CONTENT",
-                    "No readable text was found on this page. Paste the text directly.");
+        org.jsoup.nodes.Element bodyEl = main != null ? main : doc.body();
+
+        // Extract visible text with paragraph breaks
+        String text = "";
+        if (bodyEl != null) {
+            text = bodyEl.wholeOwnText().isBlank() ? bodyEl.text() : extractStructuredText(bodyEl);
+            text = text.replaceAll("[ \\t]+", " ").replaceAll("(\\n\\s*){3,}", "\n\n").strip();
         }
 
-        // Extract text with paragraph breaks
-        String text = body2.wholeOwnText().isBlank() ? body2.text() : extractStructuredText(body2);
-
-        // Normalise whitespace
-        text = text.replaceAll("[ \\t]+", " ").replaceAll("(\\n\\s*){3,}", "\n\n").strip();
+        // If visible text is too short, the page likely uses client-side rendering.
+        // Try to recover content from embedded JSON blobs in script tags (SPAs often
+        // server-side-render their data as JSON even when the DOM is empty).
+        if (text.length() < 80) {
+            String embedded = extractFromEmbeddedJson(rawHtml);
+            if (embedded != null) {
+                text = embedded;
+            }
+        }
 
         if (text.length() < 80) {
             throw ApiException.invalid(
                     "URL_NO_CONTENT",
-                    "This page has too little readable text. It may require a login, use JavaScript to load content, or the URL may not point to the terms page. Paste the text directly.");
+                    "This page loads its content with JavaScript, which cannot be fetched"
+                            + " server-side. Open the page in your browser, select all the text"
+                            + " (Ctrl+A / Cmd+A), copy it, and paste it into the text field instead.");
         }
 
         boolean truncated = false;
@@ -179,6 +222,106 @@ public class UrlFetcher {
         }
 
         return new FetchResult(title, text, sourceUrl, truncated);
+    }
+
+    /**
+     * Try to extract meaningful text from JavaScript-embedded JSON blobs in the raw HTML. Many SPAs
+     * embed their server-side data as JSON in a script tag even when the DOM is empty. Returns
+     * cleaned plain text, or null if nothing useful is found.
+     */
+    private String extractFromEmbeddedJson(String rawHtml) {
+        for (Pattern pattern : EMBEDDED_JSON_PATTERNS) {
+            Matcher m = pattern.matcher(rawHtml);
+            if (!m.find()) {
+                continue;
+            }
+            try {
+                JsonNode root = mapper.readTree(m.group(1));
+                String text = extractTextFromJson(root, 0);
+                if (text != null && text.length() >= 80) {
+                    return text;
+                }
+            } catch (Exception ignored) {
+                // malformed JSON — try next pattern
+            }
+        }
+        return null;
+    }
+
+    /**
+     * Recursively walk a JSON tree to find the longest text that looks like legal content. Prefers
+     * fields named "description", "content", "body", etc.
+     */
+    private String extractTextFromJson(JsonNode node, int depth) {
+        if (depth > 12) {
+            return null;
+        }
+        if (node.isTextual()) {
+            String val = node.asText();
+            if (val.length() > 200) {
+                return stripMarkdown(val);
+            }
+            return null;
+        }
+        if (node.isArray()) {
+            List<String> parts = new ArrayList<>();
+            for (JsonNode child : node) {
+                String part = extractTextFromJson(child, depth + 1);
+                if (part != null && part.length() > 50) {
+                    parts.add(part);
+                }
+            }
+            if (!parts.isEmpty()) {
+                String joined = String.join("\n\n", parts);
+                if (joined.length() > 200) {
+                    return joined;
+                }
+            }
+            return null;
+        }
+        if (node.isObject()) {
+            // Prefer well-known content field names
+            String best = null;
+            for (String key :
+                    List.of(
+                            "description",
+                            "content",
+                            "body",
+                            "text",
+                            "html",
+                            "details",
+                            "pageContent",
+                            "page_content",
+                            "termContent")) {
+                if (node.has(key)) {
+                    String candidate = extractTextFromJson(node.get(key), depth + 1);
+                    if (candidate != null && (best == null || candidate.length() > best.length())) {
+                        best = candidate;
+                    }
+                }
+            }
+            if (best != null && best.length() > 500) {
+                return best;
+            }
+            // Fall back to scanning all children
+            for (JsonNode child : node) {
+                String candidate = extractTextFromJson(child, depth + 1);
+                if (candidate != null && (best == null || candidate.length() > best.length())) {
+                    best = candidate;
+                }
+            }
+            return best;
+        }
+        return null;
+    }
+
+    /** Strip common markdown formatting from text (bold, italic, headers, links). */
+    private String stripMarkdown(String text) {
+        text = MD_BOLD.matcher(text).replaceAll("$1");
+        text = MD_ITALIC.matcher(text).replaceAll("$1");
+        text = MD_HEADER.matcher(text).replaceAll("");
+        text = MD_LINK.matcher(text).replaceAll("$1");
+        return text.replaceAll("[ \\t]+", " ").replaceAll("(\\n\\s*){3,}", "\n\n").strip();
     }
 
     private String extractStructuredText(org.jsoup.nodes.Element element) {
