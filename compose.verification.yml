@@ -1,0 +1,11 @@
+# Use only with compose.yml and a separate project name, e.g. tos-verification.
+# Host ports are isolated from development and existing services.
+services:
+  database:
+    volumes:
+      - ./scripts/verification-databases.sql:/docker-entrypoint-initdb.d/verification-databases.sql:ro
+    ports:
+      - "127.0.0.1:15432:5432"
+  backend:
+    ports:
+      - "127.0.0.1:18081:8080"

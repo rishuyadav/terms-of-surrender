@@ -2,21 +2,22 @@
 
 ## Configuration
 
-| Variable | Default | Purpose |
-| --- | --- | --- |
-| `PORT` | `8081` locally, `8080` in container | Backend listener |
-| `DATABASE_URL` | file-backed H2 in `.data/` | JDBC connection; use PostgreSQL for deployment |
-| `DATABASE_USER` | `sa` | Database username |
-| `DATABASE_PASSWORD` | empty locally | Database password; required by Compose |
-| `ALLOWED_ORIGINS` | `http://localhost:3000` | Exact comma-separated trusted browser origins |
-| `SECURE_COOKIES` | `false` locally | Set true behind production HTTPS |
-| `RETENTION_HOURS` | `24` | 1–168 hours; report access expires immediately at deadline |
-| `WORKER_ENABLED` | `true` | Run background worker in this process |
-| `MODEL_ENABLED` | `false` | Explicit opt-in to external model processing |
-| `MODEL_BASE_URL` | `https://api.openai.com/v1` | HTTPS OpenAI-compatible API base |
-| `MODEL_API_KEY` | empty | Server-side provider credential |
-| `MODEL_NAME` | empty | Required when model mode is enabled |
-| `API_BASE_URL` | `http://localhost:8081` | Frontend build-time proxy destination |
+| Variable            | Default                             | Purpose                                                    |
+| ------------------- | ----------------------------------- | ---------------------------------------------------------- |
+| `PORT`              | `8081` locally, `8080` in container | Backend listener                                           |
+| `DATABASE_URL`      | file-backed H2 in `.data/`          | JDBC connection; use PostgreSQL for deployment             |
+| `DATABASE_USER`     | `sa`                                | Database username                                          |
+| `DATABASE_PASSWORD` | empty locally                       | Database password; required by Compose                     |
+| `ALLOWED_ORIGINS`   | `http://localhost:3000`             | Exact comma-separated trusted browser origins              |
+| `SECURE_COOKIES`    | `false` locally                     | Set true behind production HTTPS                           |
+| `RETENTION_HOURS`   | `24`                                | 1–168 hours; report access expires immediately at deadline |
+| `WORKER_ENABLED`    | `true`                              | Run background worker in this process                      |
+| `MODEL_ENABLED`     | `false`                             | Explicit opt-in to external model processing               |
+| `MODEL_BASE_URL`    | `https://api.openai.com/v1`         | HTTPS OpenAI-compatible API base                           |
+| `MODEL_API_KEY`     | empty                               | Server-side provider credential                            |
+| `MODEL_NAME`        | empty                               | Required when model mode is enabled                        |
+| `API_BASE_URL`      | `http://localhost:8081`             | Frontend build-time proxy destination                      |
+| `WEB_PORT`          | `3000`                              | Compose loopback frontend port                             |
 
 Spring Boot reads exported environment variables, not the root `.env` file automatically. Docker Compose reads root `.env`. Next.js can read `frontend/.env.local`; never put a model key in a `NEXT_PUBLIC_` variable.
 
@@ -30,6 +31,7 @@ Spring Boot reads exported environment variables, not the root `.env` file autom
 - Anonymous quotas are not abuse prevention by themselves: anyone can start a new session. Enforce independent IP/ingress/global spending limits before public exposure.
 - Expired rows and admission metadata are purged every minute. A live worker can briefly retain an in-memory copy after deletion. Database files, WAL, backups, model providers, and local downloads have separate retention properties; deletion is not cryptographic erasure.
 - No original PDFs are retained. Extraction runs in the API process in this slice. Strict upload limits are not a substitute for sandboxing hostile parsers.
+- The servlet accepts at most 10 MB per file and 11 MB per multipart request. Tomcat drains at most 12 MB on rejection to deliver a clean `413` for nearby over-limit requests without enabling unbounded body draining. Much larger malicious requests may be disconnected; enforce a hard limit at the public ingress too.
 - Failed jobs are not automatically retried. Persisted queued jobs survive restarts; abandoned processing jobs fail when their lease expires.
 - `/actuator/health` exposes liveness/database health without private details. Put it behind the internal network in production.
 

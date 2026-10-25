@@ -83,7 +83,7 @@ jobs:
           cache: npm
           cache-dependency-path: frontend/package-lock.json
       - run: npm ci
-      - run: npx playwright install --with-deps chromium
+      - run: npx playwright install --with-deps chromium firefox webkit
       - run: npm run build
       - run: npm run test:e2e
       - uses: actions/upload-artifact@v4
@@ -92,3 +92,41 @@ jobs:
           name: browser-test-results
           path: frontend/test-results
           retention-days: 7
+
+  containers:
+    runs-on: ubuntu-latest
+    env:
+      DATABASE_PASSWORD: local-ci-only-password
+      WEB_PORT: "13001"
+      ALLOWED_ORIGINS: http://localhost:13001
+      MODEL_ENABLED: "false"
+      E2E_EXTERNAL_SERVICES: "true"
+      E2E_BASE_URL: http://localhost:13001
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "24"
+          cache: npm
+          cache-dependency-path: frontend/package-lock.json
+      - run: docker compose -p tos-verification -f compose.yml -f compose.verification.yml up --build -d
+      - run: curl --retry 30 --retry-all-errors --retry-delay 1 --fail http://localhost:13001/api/session
+      - run: npm ci
+        working-directory: frontend
+      - run: npx playwright install --with-deps chromium
+        working-directory: frontend
+      - run: npm run test:e2e -- --project=desktop --project=mobile
+        working-directory: frontend
+      - run: python3 scripts/verify-containers.py --engine docker
+      - name: Container diagnostics
+        if: failure()
+        run: docker compose -p tos-verification -f compose.yml -f compose.verification.yml logs --no-color
+      - uses: actions/upload-artifact@v4
+        if: failure()
+        with:
+          name: container-browser-test-results
+          path: frontend/test-results
+          retention-days: 7
+      - name: Remove verification stack
+        if: always()
+        run: docker compose -p tos-verification -f compose.yml -f compose.verification.yml down --volumes

@@ -71,7 +71,7 @@ npm test
 npm run build
 
 # Full browser flow; starts the API and frontend automatically
-npx playwright install chromium
+npx playwright install chromium firefox webkit
 npm run test:e2e
 ```
 
@@ -91,9 +91,12 @@ cp .env.example .env
 docker compose up --build
 ```
 
-Only the frontend is exposed, on `127.0.0.1:3000`. The API and PostgreSQL communicate on the container network. Container configuration is provided but must be verified in a Docker-capable environment. For a public deployment, use HTTPS, set `SECURE_COOKIES=true` and exact `ALLOWED_ORIGINS`, configure ingress rate limits and streaming, and complete the [deployment checklist](docs/operations.md). Do not expose this development setup as a production legal service.
+Only the frontend is exposed, on `127.0.0.1:3000` by default (`WEB_PORT` is configurable). The API and PostgreSQL communicate on the container network. The container path has been exercised with Podman Compose; verify it again in your target deployment environment. For a public deployment, use HTTPS, set `SECURE_COOKIES=true` and exact `ALLOWED_ORIGINS`, configure ingress rate limits and streaming, and complete the [deployment checklist](docs/operations.md). Do not expose this development setup as a production legal service.
 
 See [API documentation](docs/api.md) for endpoints and [operations](docs/operations.md) for configuration and known limits.
+
+See [testing](docs/testing.md) for the cross-browser matrix and isolated PostgreSQL/container verification commands.
+The latest recorded outcomes and their limitations are in [verification results](docs/test-results.md).
 
 ## Trust boundaries
 
