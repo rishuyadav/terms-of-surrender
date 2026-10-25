@@ -135,7 +135,17 @@ export function Intake() {
 
   function looksLikeUrl(value: string): boolean {
     const trimmed = value.trim();
-    return trimmed.startsWith("https://") && trimmed.length > 10 && !trimmed.includes("\n");
+    // Only trigger on a complete URL paste: must look like a full URL (has a dot in the host
+    // part), be the only content in the field (no surrounding text), and not contain newlines.
+    // Minimum length: "https://a.bc" = 13 chars.
+    if (!trimmed.startsWith("https://") || trimmed.includes("\n") || trimmed.length < 13) {
+      return false;
+    }
+    // The rest after "https://" must contain at least one dot (a real hostname).
+    const afterScheme = trimmed.slice("https://".length);
+    const hostEnd = afterScheme.search(/[/?#]/);
+    const host = hostEnd === -1 ? afterScheme : afterScheme.slice(0, hostEnd);
+    return host.includes(".");
   }
 
   async function fetchUrl() {

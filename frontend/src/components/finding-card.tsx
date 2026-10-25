@@ -23,12 +23,14 @@ export function FindingCard({
   index,
   selected,
   onSelect,
+  onSelectRelated,
   sourceType = "PDF",
 }: {
   finding: Finding;
   index: number;
   selected: boolean;
   onSelect: () => void;
+  onSelectRelated?: (blockId: string) => void;
   sourceType?: "TEXT" | "PDF" | "DOCX";
 }) {
   const [copied, setCopied] = useState(false);
@@ -86,6 +88,23 @@ export function FindingCard({
         {selected ? <Check size={14} /> : <ArrowUpRight size={14} />}
         {selected ? "Highlighted in source" : "Show in document"}
       </button>
+      {finding.relatedBlockIds && finding.relatedBlockIds.length > 0 && onSelectRelated && (
+        <div className="related-clauses">
+          <span className="related-clauses-label">Also see:</span>
+          {finding.relatedBlockIds.map((blockId) => (
+            <button
+              key={blockId}
+              type="button"
+              className="related-clause-btn"
+              onClick={() => onSelectRelated(blockId)}
+            >
+              {sourceType === "PDF"
+                ? `Page ${blockId.split("-")[0].slice(1)}`
+                : `Section ${blockId}`}
+            </button>
+          ))}
+        </div>
+      )}
       <details className="question-details">
         <summary>
           <MessageCircleQuestion size={15} /> A question worth asking <ChevronDown size={14} />

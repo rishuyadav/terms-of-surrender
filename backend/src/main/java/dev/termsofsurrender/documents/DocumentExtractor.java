@@ -31,10 +31,12 @@ public class DocumentExtractor {
             throw ApiException.invalid("UPLOAD_TOO_LARGE", "Upload a document smaller than 10 MB.");
         }
         String filename = file.getOriginalFilename();
-        String title = filename != null && !filename.isBlank()
-                ? titleFromFilename(filename) : "Uploaded agreement";
-        boolean isDocx = filename != null
-                && filename.toLowerCase(java.util.Locale.ROOT).endsWith(".docx");
+        String title =
+                filename != null && !filename.isBlank()
+                        ? titleFromFilename(filename)
+                        : "Uploaded agreement";
+        boolean isDocx =
+                filename != null && filename.toLowerCase(java.util.Locale.ROOT).endsWith(".docx");
         try {
             return extractFile(isDocx ? "DOCX" : "PDF", title, file.getBytes());
         } catch (IOException exception) {
@@ -68,7 +70,9 @@ public class DocumentExtractor {
         for (String line : text.split("\\r?\\n", -1)) {
             String trimmed = line.strip();
             if (!trimmed.isEmpty()) {
-                return trimmed.length() > 80 ? trimmed.substring(0, 80).stripTrailing() + "…" : trimmed;
+                return trimmed.length() > 80
+                        ? trimmed.substring(0, 80).stripTrailing() + "…"
+                        : trimmed;
             }
         }
         return "Pasted agreement";

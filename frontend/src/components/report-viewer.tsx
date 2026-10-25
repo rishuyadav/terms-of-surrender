@@ -66,6 +66,10 @@ export function ReportViewer({ id }: { id: string }) {
           ?.scrollIntoView({ behavior: "smooth", block: "nearest" }),
       );
     } else {
+      // Clear source search if the target block would be filtered out.
+      if (matchingBlockIds && !matchingBlockIds.has(finding.evidence.blockId)) {
+        setSourceSearch("");
+      }
       setMobilePane("source");
       requestAnimationFrame(() =>
         document
@@ -100,21 +104,38 @@ export function ReportViewer({ id }: { id: string }) {
     } catch { /* ignore */ }
   }
 
+  function esc(raw: string): string {
+    return raw
+      .replace(/&/g, "&amp;")
+      .replace(/</g, "&lt;")
+      .replace(/>/g, "&gt;")
+      .replace(/"/g, "&quot;")
+      .replace(/'/g, "&#39;");
+  }
+
   function downloadReport() {
     if (!view || !view.report) return;
     const reportFindings = view.report.findings;
+    const checklist = view.report.checklist ?? [];
     const html = `<!DOCTYPE html>
 <html lang="en">
 <head>
 <meta charset="utf-8">
-<title>Contract Analysis — Terms of Surrender</title>
+<title>Contract Analysis — ${esc(view.document.title)}</title>
 <style>
   body { font-family: system-ui, sans-serif; max-width: 720px; margin: 40px auto; padding: 0 24px; color: #1a1a1a; line-height: 1.6; }
   h1 { font-size: 22px; font-weight: 600; margin-bottom: 4px; }
+  h2 { font-size: 15px; margin: 0 0 4px; }
   .meta { font-size: 13px; color: #666; margin-bottom: 32px; }
   .summary { background: #f5f5f0; border-left: 3px solid #888; padding: 14px 16px; margin-bottom: 28px; font-size: 14px; border-radius: 0 4px 4px 0; }
+  .checklist { background: #f0f4f0; border-radius: 8px; padding: 16px 20px; margin-bottom: 28px; }
+  .checklist h3 { font-size: 11px; font-weight: 700; letter-spacing: 0.08em; color: #666; margin: 0 0 12px; }
+  .checklist li { font-size: 13px; margin-bottom: 8px; list-style: none; display: flex; gap: 10px; }
+  .checklist .tag { font-size: 9px; font-weight: 700; padding: 2px 6px; border-radius: 4px; white-space: nowrap; align-self: flex-start; margin-top: 2px; }
+  .tag-ask { background: #e8f0fe; color: #2952a3; }
+  .tag-verify { background: #fff8e1; color: #7d6000; }
+  .tag-consider { background: #e8f5e9; color: #2e7d32; }
   .finding { border: 1px solid #e0e0d8; border-radius: 6px; padding: 18px 20px; margin-bottom: 16px; }
-  .finding h2 { font-size: 15px; margin: 0 0 4px; }
   .badge { display: inline-block; font-size: 10px; font-weight: 600; padding: 2px 7px; border-radius: 10px; text-transform: uppercase; letter-spacing: 0.05em; margin-bottom: 10px; }
   .badge.high { background: #fde8e8; color: #c0392b; }
   .badge.review { background: #fff8e1; color: #7d6000; }
@@ -129,22 +150,23 @@ export function ReportViewer({ id }: { id: string }) {
 </style>
 </head>
 <body>
-<h1>Contract Analysis</h1>
+<h1>${esc(view.document.title)}</h1>
 <div class="meta">
-  ${view.report.contextLabel && view.report.contextLabel !== "Not specified" ? `${view.report.contextLabel} · ` : ""}${new Date(view.createdAt).toLocaleDateString()} · ${view.report.mode === "RULE_BASED_PREVIEW" ? "Keyword preview" : "AI-assisted"}
+  ${view.report.contextLabel && view.report.contextLabel !== "Not specified" ? `${esc(view.report.contextLabel)} · ` : ""}${new Date(view.createdAt).toLocaleDateString()} · ${view.report.mode === "RULE_BASED_PREVIEW" ? "Keyword preview" : "AI-assisted"}
 </div>
-${view.report.summary ? `<div class="summary">${view.report.summary}</div>` : ""}
+${view.report.summary ? `<div class="summary">${esc(view.report.summary)}</div>` : ""}
+${checklist.length > 0 ? `<div class="checklist"><h3>BEFORE YOU AGREE</h3><ul>${checklist.map((c) => `<li><span class="tag tag-${c.action.toLowerCase()}">${esc(c.action)}</span>${esc(c.text)}</li>`).join("")}</ul></div>` : ""}
 ${reportFindings.map((f, i) => `
 <div class="finding">
   <span class="badge ${f.impact.toLowerCase()}">${f.impact === "HIGH" ? "High impact" : f.impact === "REVIEW" ? "Worth reviewing" : "Potential protection"}</span>
-  <h2>${i + 1}. ${f.title}</h2>
-  <p class="explanation">${f.explanation}</p>
-  <blockquote>${f.evidence.quote}</blockquote>
-  <div class="question"><strong>A question to ask:</strong>${f.suggestedQuestion}</div>
+  <h2>${i + 1}. ${esc(f.title)}</h2>
+  <p class="explanation">${esc(f.explanation)}</p>
+  <blockquote>${esc(f.evidence.quote)}</blockquote>
+  <div class="question"><strong>A question to ask:</strong> ${esc(f.suggestedQuestion)}</div>
 </div>`).join("")}
 <div class="limitations">
   <strong>Limitations</strong>
-  <ul>${view.report.limitations.map((l) => `<li>${l}</li>`).join("")}</ul>
+  <ul>${view.report.limitations.map((l) => `<li>${esc(l)}</li>`).join("")}</ul>
 </div>
 <footer>Terms of Surrender — Clarity, not legal advice. Always verify before acting.</footer>
 </body>
@@ -374,6 +396,76 @@ ${reportFindings.map((f, i) => `
                     <small>Potential protections</small>
                   </div>
                 </section>
+
+                {/* "Start here" priority findings */}
+                {view.report?.priorities && view.report.priorities.length > 0 && (() => {
+                  const priorityFindings = view.report.priorities
+                    .map((pid) => findings.find((f) => f.id === pid))
+                    .filter((f): f is NonNullable<typeof f> => f !== undefined);
+                  if (priorityFindings.length === 0) return null;
+                  return (
+                    <section className="start-here-section" aria-labelledby="start-here-title">
+                      <div className="start-here-header">
+                        <span className="label-caption" id="start-here-title">START HERE</span>
+                        <p>The findings most worth your attention</p>
+                      </div>
+                      <ol className="start-here-list">
+                        {priorityFindings.map((f) => (
+                          <li key={f.id} className={`start-here-item impact-${f.impact.toLowerCase()}`}>
+                            <button
+                              type="button"
+                              className="start-here-btn"
+                              onClick={() => selectFinding(f)}
+                            >
+                              <span className={`start-here-pill ${f.impact.toLowerCase()}`}>
+                                {f.impact === "HIGH" ? "High impact" : f.impact === "REVIEW" ? "Review" : "Protection"}
+                              </span>
+                              <span className="start-here-title">{f.title}</span>
+                              <ArrowRight size={14} className="start-here-arrow" />
+                            </button>
+                            <p className="start-here-why">{f.whyItMatters}</p>
+                          </li>
+                        ))}
+                      </ol>
+                    </section>
+                  );
+                })()}
+
+                {/* Action checklist */}
+                {view.report?.checklist && view.report.checklist.length > 0 && (
+                  <section className="action-checklist" aria-labelledby="checklist-title">
+                    <div className="checklist-header">
+                      <span className="label-caption" id="checklist-title">BEFORE YOU AGREE</span>
+                      <button
+                        type="button"
+                        className="text-button copy-all-btn"
+                        onClick={async () => {
+                          const text = (view.report?.checklist ?? [])
+                            .map((c, i) => `${i + 1}. [${c.action}] ${c.text}`)
+                            .join("\n");
+                          try {
+                            await navigator.clipboard.writeText(text);
+                          } catch { /* ignore */ }
+                        }}
+                      >
+                        <Copy size={12} /> Copy checklist
+                      </button>
+                    </div>
+                    <ul className="checklist-list">
+                      {view.report.checklist.map((item, i) => (
+                        <li key={i} className="checklist-item">
+                          <span className={`checklist-tag action-${item.action.toLowerCase()}`}>
+                            {item.action}
+                          </span>
+                          <span className="checklist-text">{item.text}</span>
+                        </li>
+                      ))}
+                    </ul>
+                    <p className="checklist-note">
+                      Items derived from findings. Verify facts before acting.
+                    </p>
+                  </section>
+                )}
               </>
             )}
 
@@ -595,6 +687,19 @@ ${reportFindings.map((f, i) => `
                           index={index}
                           selected={selected === finding.id}
                           onSelect={() => selectFinding(finding)}
+                          onSelectRelated={(blockId) => {
+                            // Navigate to a related block in the source pane.
+                            if (matchingBlockIds && !matchingBlockIds.has(blockId)) {
+                              setSourceSearch("");
+                            }
+                            setSelected(finding.id);
+                            setMobilePane("source");
+                            requestAnimationFrame(() =>
+                              document
+                                .getElementById(`block-${blockId}`)
+                                ?.scrollIntoView({ behavior: "smooth", block: "center" }),
+                            );
+                          }}
                         />
                       ),
                     )

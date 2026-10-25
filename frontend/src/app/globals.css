@@ -2078,6 +2078,179 @@ summary::-webkit-details-marker {
   text-align: center;
 }
 
+/* Start here — priority findings */
+.start-here-section {
+  margin: 20px 0;
+  border: 1px solid #e5e0d0;
+  border-radius: 8px;
+  overflow: hidden;
+}
+.start-here-header {
+  background: #f9f7f0;
+  border-bottom: 1px solid #e5e0d0;
+  padding: 12px 20px;
+}
+.start-here-header p {
+  font-size: 11px;
+  color: var(--muted);
+  margin: 2px 0 0;
+}
+.start-here-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+.start-here-item {
+  border-bottom: 1px solid #eeeee8;
+}
+.start-here-item:last-child {
+  border-bottom: none;
+}
+.start-here-btn {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  width: 100%;
+  padding: 14px 20px 6px;
+  background: none;
+  border: none;
+  cursor: pointer;
+  text-align: left;
+}
+.start-here-btn:hover {
+  background: #fafaf6;
+}
+.start-here-pill {
+  font-size: 9px;
+  font-weight: 700;
+  padding: 2px 7px;
+  border-radius: 8px;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  white-space: nowrap;
+  flex-shrink: 0;
+}
+.start-here-pill.high {
+  background: #fde8e8;
+  color: #b52a2a;
+}
+.start-here-pill.review {
+  background: #fff8e1;
+  color: #7d6000;
+}
+.start-here-pill.favorable {
+  background: #e8f5e9;
+  color: #2e7d32;
+}
+.start-here-title {
+  font-size: 13px;
+  font-weight: 550;
+  color: var(--ink);
+  flex: 1;
+}
+.start-here-arrow {
+  color: var(--muted);
+  flex-shrink: 0;
+}
+.start-here-why {
+  font-size: 11px;
+  color: var(--muted);
+  padding: 0 20px 14px 20px;
+  margin: 0;
+  line-height: 1.6;
+}
+
+/* Action checklist */
+.action-checklist {
+  margin: 20px 0;
+  border: 1px solid #d8e8d8;
+  border-radius: 8px;
+  overflow: hidden;
+  background: #f4faf4;
+}
+.checklist-header {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 12px 20px;
+  border-bottom: 1px solid #d8e8d8;
+  background: #ecf6ec;
+}
+.checklist-list {
+  list-style: none;
+  margin: 0;
+  padding: 12px 0;
+}
+.checklist-item {
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+  padding: 8px 20px;
+}
+.checklist-tag {
+  font-size: 8px;
+  font-weight: 700;
+  padding: 2px 6px;
+  border-radius: 4px;
+  letter-spacing: 0.06em;
+  white-space: nowrap;
+  flex-shrink: 0;
+  margin-top: 2px;
+}
+.action-ask {
+  background: #e8f0fe;
+  color: #2952a3;
+}
+.action-verify {
+  background: #fff8e1;
+  color: #7d6000;
+}
+.action-consider {
+  background: #e8f5e9;
+  color: #2e7d32;
+}
+.checklist-text {
+  font-size: 12px;
+  color: #3a4030;
+  line-height: 1.6;
+}
+.checklist-note {
+  font-size: 10px;
+  color: #7a8870;
+  padding: 8px 20px 12px;
+  margin: 0;
+  border-top: 1px solid #d8e8d8;
+}
+
+/* Related clauses in finding card */
+.related-clauses {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  flex-wrap: wrap;
+  padding: 8px 20px;
+  border-top: 1px solid var(--line);
+  background: #fafaf6;
+}
+.related-clauses-label {
+  font-size: 9px;
+  font-weight: 600;
+  color: var(--muted);
+  letter-spacing: 0.04em;
+}
+.related-clause-btn {
+  font-size: 9px;
+  color: #5a6850;
+  background: #e8ece0;
+  border: 1px solid #d8dcd0;
+  border-radius: 4px;
+  padding: 2px 7px;
+  cursor: pointer;
+}
+.related-clause-btn:hover {
+  background: #d8dcd0;
+}
+
 /* Mobile back-to-findings banner */
 .mobile-back-banner {
   display: none;

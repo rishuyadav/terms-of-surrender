@@ -36,6 +36,14 @@ export interface Finding {
   whyItMatters: string;
   evidence: { blockId: string; start: number; end: number; quote: string };
   suggestedQuestion: string;
+  relatedBlockIds?: string[];
+}
+
+export type ChecklistAction = "ASK" | "VERIFY" | "CONSIDER";
+
+export interface ChecklistItem {
+  action: ChecklistAction;
+  text: string;
 }
 
 export interface Report {
@@ -46,6 +54,8 @@ export interface Report {
   legalContextAvailable: boolean;
   contextLabel: string;
   summary?: string | null;
+  priorities?: string[];
+  checklist?: ChecklistItem[];
 }
 
 export interface AnalysisView {

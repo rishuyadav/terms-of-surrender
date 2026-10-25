@@ -18,6 +18,7 @@ import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.TimeoutException;
+import java.util.stream.Collectors;
 
 /** OpenAI-compatible adapter. Provider failures never silently downgrade to preview mode. */
 public class ModelAnalysisEngine implements AnalysisEngine, AutoCloseable {
@@ -35,10 +36,16 @@ public class ModelAnalysisEngine implements AnalysisEngine, AutoCloseable {
             Return JSON: {"summary": "2-4 sentence plain-English overview of what this agreement covers, the main obligations on each side, and any notable gaps or missing attachments.", "findings": [{"blockId": "...", "quote": "exact contiguous source text",
             "category": "short topic", "impact": "HIGH|REVIEW|FAVORABLE", "title": "short heading",
             "explanation": "plain English, grounded in the quote", "whyItMatters": "practical implication",
-            "suggestedQuestion": "a question for the other party, not an instruction to take legal action"}]}.
+            "suggestedQuestion": "a question for the other party, not an instruction to take legal action",
+            "relatedBlockIds": ["blockId1", "blockId2"]}]}.
+            relatedBlockIds: other block IDs from the same document that provide relevant definitions, exceptions, or cross-references for this finding. Limit to 3 related blocks.
             Use at most 8 findings per request. Quote at least 15 characters and at most 1500 characters.
             HIGH means a potentially significant practical consequence, not illegality.
             An empty findings array is valid. Do not treat ordinary words alone as proof of a risk.
+            After producing findings, also return:
+            "priorities": an array of up to 3 finding IDs (from the findings array) that are the most consequential — the ones a user should read first. Choose HIGH impact findings first, then REVIEW. Never include FAVORABLE-only findings unless there are no others.
+            "checklist": an array of action items, each with "action" ("ASK", "VERIFY", or "CONSIDER") and "text" (one concise sentence). ASK = the user should clarify an ambiguous term with the other party. VERIFY = the user should check a date, amount, or attachment. CONSIDER = the user should review an explicit option they have. Limit to 5 checklist items. Do not invent rights or deadlines not present in the text.
+            Updated JSON shape: {"summary": "...", "priorities": ["finding-1", "finding-2"], "checklist": [{"action": "ASK", "text": "..."}, ...], "findings": [...]}.
             """;
 
     private final AppProperties.Model config;
@@ -95,6 +102,8 @@ public class ModelAnalysisEngine implements AnalysisEngine, AutoCloseable {
         Set<String> seen = new HashSet<>();
         int rejected = 0;
         String summary = null;
+        List<String> rawPriorities = new ArrayList<>();
+        List<Analysis.ChecklistItem> checklist = new ArrayList<>();
         List<List<Document.Block>> chunks = chunks(input.document().blocks());
         if (chunks.size() > 12) {
             throw new IllegalStateException("Document exceeds model request budget");
@@ -110,6 +119,38 @@ public class ModelAnalysisEngine implements AnalysisEngine, AutoCloseable {
                 String rawSummary = response.path("summary").asText(null);
                 if (rawSummary != null && !rawSummary.isBlank()) {
                     summary = rawSummary.length() > 600 ? rawSummary.substring(0, 600) : rawSummary;
+                }
+                JsonNode prioritiesNode = response.path("priorities");
+                if (prioritiesNode.isArray()) {
+                    for (JsonNode p : prioritiesNode) {
+                        if (rawPriorities.size() >= 3) {
+                            break;
+                        }
+                        String pid = p.asText("").strip();
+                        if (!pid.isBlank() && pid.length() <= 20) {
+                            rawPriorities.add(pid);
+                        }
+                    }
+                }
+                JsonNode checklistNode = response.path("checklist");
+                if (checklistNode.isArray()) {
+                    for (JsonNode item : checklistNode) {
+                        if (checklist.size() >= 5) {
+                            break;
+                        }
+                        String actionText = item.path("action").asText("").strip();
+                        String text = item.path("text").asText("").strip();
+                        if (actionText.isBlank() || text.isBlank() || text.length() > 300) {
+                            continue;
+                        }
+                        try {
+                            Analysis.ChecklistAction action =
+                                    Analysis.ChecklistAction.valueOf(actionText);
+                            checklist.add(new Analysis.ChecklistItem(action, text));
+                        } catch (IllegalArgumentException ignored) {
+                            // skip invalid action values
+                        }
+                    }
                 }
             }
             Set<String> chunkIds = new HashSet<>();
@@ -129,6 +170,16 @@ public class ModelAnalysisEngine implements AnalysisEngine, AutoCloseable {
                 try {
                     Analysis.Impact impact =
                             Analysis.Impact.valueOf(required(proposal, "impact", 20));
+                    List<String> relatedBlockIds = new ArrayList<>();
+                    JsonNode related = proposal.path("relatedBlockIds");
+                    if (related.isArray()) {
+                        for (JsonNode rId : related) {
+                            String rid = rId.asText("").strip();
+                            if (!rid.isBlank() && rid.length() <= 20) {
+                                relatedBlockIds.add(rid);
+                            }
+                        }
+                    }
                     Analysis.Finding finding =
                             new Analysis.Finding(
                                     "finding-" + (findings.size() + 1),
@@ -138,7 +189,8 @@ public class ModelAnalysisEngine implements AnalysisEngine, AutoCloseable {
                                     required(proposal, "explanation", 1200),
                                     required(proposal, "whyItMatters", 1200),
                                     evidence.get(),
-                                    required(proposal, "suggestedQuestion", 500));
+                                    required(proposal, "suggestedQuestion", 500),
+                                    List.copyOf(relatedBlockIds));
                     if (seen.add(
                             blockId + ":" + evidence.get().start() + ":" + evidence.get().end())) {
                         findings.add(finding);
@@ -148,6 +200,10 @@ public class ModelAnalysisEngine implements AnalysisEngine, AutoCloseable {
                 }
             }
         }
+        Set<String> findingIds = new HashSet<>();
+        findings.forEach(f -> findingIds.add(f.id()));
+        List<String> priorities =
+                rawPriorities.stream().filter(findingIds::contains).collect(Collectors.toList());
         List<String> limitations =
                 new ArrayList<>(
                         List.of(
@@ -167,13 +223,16 @@ public class ModelAnalysisEngine implements AnalysisEngine, AutoCloseable {
                 List.copyOf(limitations),
                 false,
                 JurisdictionContext.label(input.context()),
-                summary);
+                summary,
+                List.copyOf(priorities),
+                List.copyOf(checklist));
     }
 
     private JsonNode request(Analysis.Context context, List<Document.Block> blocks) {
         CompletableFuture<HttpResponse<byte[]>> pending = null;
         try {
-            String systemPrompt = JurisdictionContext.systemFraming(context) + "\n" + CORE_INSTRUCTIONS;
+            String systemPrompt =
+                    JurisdictionContext.systemFraming(context) + "\n" + CORE_INSTRUCTIONS;
             String body =
                     mapper.writeValueAsString(
                             Map.of(
@@ -193,7 +252,9 @@ public class ModelAnalysisEngine implements AnalysisEngine, AutoCloseable {
                                                     mapper.writeValueAsString(
                                                             Map.of(
                                                                     "context", context,
-                                                                    "contextLabel", JurisdictionContext.label(context),
+                                                                    "contextLabel",
+                                                                            JurisdictionContext
+                                                                                    .label(context),
                                                                     "blocks", blocks))))));
             HttpRequest request =
                     HttpRequest.newBuilder(

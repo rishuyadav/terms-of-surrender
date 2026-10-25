@@ -44,6 +44,14 @@ public final class Analysis {
 
     public record Evidence(String blockId, int start, int end, String quote) {}
 
+    public enum ChecklistAction {
+        ASK,
+        VERIFY,
+        CONSIDER
+    }
+
+    public record ChecklistItem(ChecklistAction action, String text) {}
+
     public record Finding(
             String id,
             String category,
@@ -52,7 +60,8 @@ public final class Analysis {
             String explanation,
             String whyItMatters,
             Evidence evidence,
-            String suggestedQuestion) {}
+            String suggestedQuestion,
+            List<String> relatedBlockIds) {}
 
     public record Report(
             Mode mode,
@@ -61,7 +70,9 @@ public final class Analysis {
             List<String> limitations,
             boolean legalContextAvailable,
             String contextLabel,
-            String summary) {}
+            String summary,
+            List<String> priorities,
+            List<ChecklistItem> checklist) {}
 
     public record View(
             UUID id,

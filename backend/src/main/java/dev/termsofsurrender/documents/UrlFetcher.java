@@ -33,10 +33,11 @@ public class UrlFetcher {
     private final HttpClient client;
 
     public UrlFetcher() {
-        this(HttpClient.newBuilder()
-                .connectTimeout(Duration.ofSeconds(CONNECT_TIMEOUT_S))
-                .followRedirects(HttpClient.Redirect.NEVER)
-                .build());
+        this(
+                HttpClient.newBuilder()
+                        .connectTimeout(Duration.ofSeconds(CONNECT_TIMEOUT_S))
+                        .followRedirects(HttpClient.Redirect.NEVER)
+                        .build());
     }
 
     UrlFetcher(HttpClient client) {
@@ -50,18 +51,22 @@ public class UrlFetcher {
 
     private FetchResult fetchWithRedirects(URI uri, int remaining) {
         validateDestination(uri);
-        HttpRequest request = HttpRequest.newBuilder(uri)
-                .timeout(Duration.ofSeconds(READ_TIMEOUT_S))
-                .header("User-Agent", "TermsOfSurrender/1.0 (agreement review tool)")
-                .header("Accept", "text/html,application/xhtml+xml")
-                .header("Accept-Language", "en")
-                .GET()
-                .build();
+        HttpRequest request =
+                HttpRequest.newBuilder(uri)
+                        .timeout(Duration.ofSeconds(READ_TIMEOUT_S))
+                        .header("User-Agent", "TermsOfSurrender/1.0 (agreement review tool)")
+                        .header("Accept", "text/html,application/xhtml+xml")
+                        .header("Accept-Language", "en")
+                        .GET()
+                        .build();
         HttpResponse<byte[]> response;
         try {
-            var future = client.sendAsync(
-                    request,
-                    info -> new dev.termsofsurrender.analysis.LimitedBodySubscriber(MAX_RESPONSE_BYTES));
+            var future =
+                    client.sendAsync(
+                            request,
+                            info ->
+                                    new dev.termsofsurrender.analysis.LimitedBodySubscriber(
+                                            MAX_RESPONSE_BYTES));
             response = future.get(READ_TIMEOUT_S + CONNECT_TIMEOUT_S, TimeUnit.SECONDS);
         } catch (InterruptedException e) {
             Thread.currentThread().interrupt();
@@ -90,7 +95,8 @@ public class UrlFetcher {
             try {
                 next = uri.resolve(location);
             } catch (Exception e) {
-                throw ApiException.invalid("URL_INVALID", "The redirect destination is not a valid URL.");
+                throw ApiException.invalid(
+                        "URL_INVALID", "The redirect destination is not a valid URL.");
             }
             return fetchWithRedirects(next, remaining - 1);
         }
@@ -123,17 +129,19 @@ public class UrlFetcher {
         Document doc = Jsoup.parse(new String(body, java.nio.charset.StandardCharsets.UTF_8));
 
         // Remove nav, header, footer, scripts, ads — keep main content
-        doc.select("script, style, noscript, nav, header, footer, aside, "
-                        + "[role=navigation], [role=banner], [role=complementary], "
-                        + ".cookie-banner, .cookie-notice, #cookie, .nav, .navbar, "
-                        + ".menu, .sidebar, .advertisement, .ads, iframe, form")
+        doc.select(
+                        "script, style, noscript, nav, header, footer, aside, "
+                                + "[role=navigation], [role=banner], [role=complementary], "
+                                + ".cookie-banner, .cookie-notice, #cookie, .nav, .navbar, "
+                                + ".menu, .sidebar, .advertisement, .ads, iframe, form")
                 .remove();
 
         // Try to find the main content area
-        org.jsoup.nodes.Element main = doc.selectFirst(
-                "main, [role=main], article, "
-                        + ".terms-content, .legal-content, .policy-content, #terms, #privacy, "
-                        + "#content, .content, .container");
+        org.jsoup.nodes.Element main =
+                doc.selectFirst(
+                        "main, [role=main], article, "
+                                + ".terms-content, .legal-content, .policy-content, #terms, #privacy, "
+                                + "#content, .content, .container");
         org.jsoup.nodes.Element body2 = main != null ? main : doc.body();
         if (body2 == null) {
             throw ApiException.invalid(
@@ -142,14 +150,10 @@ public class UrlFetcher {
         }
 
         // Extract text with paragraph breaks
-        String text = body2.wholeOwnText().isBlank()
-                ? body2.text()
-                : extractStructuredText(body2);
+        String text = body2.wholeOwnText().isBlank() ? body2.text() : extractStructuredText(body2);
 
         // Normalise whitespace
-        text = text.replaceAll("[ \\t]+", " ")
-                .replaceAll("(\\n\\s*){3,}", "\n\n")
-                .strip();
+        text = text.replaceAll("[ \\t]+", " ").replaceAll("(\\n\\s*){3,}", "\n\n").strip();
 
         if (text.length() < 80) {
             throw ApiException.invalid(
@@ -188,8 +192,20 @@ public class UrlFetcher {
                 if (inner.isEmpty()) {
                     continue;
                 }
-                if (Set.of("p", "div", "li", "h1", "h2", "h3", "h4", "h5", "h6", "tr", "section",
-                                "article", "blockquote")
+                if (Set.of(
+                                "p",
+                                "div",
+                                "li",
+                                "h1",
+                                "h2",
+                                "h3",
+                                "h4",
+                                "h5",
+                                "h6",
+                                "tr",
+                                "section",
+                                "article",
+                                "blockquote")
                         .contains(tag)) {
                     sb.append("\n\n").append(inner);
                 } else {
