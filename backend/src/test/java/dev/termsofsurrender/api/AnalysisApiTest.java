@@ -24,11 +24,13 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.autoconfigure.web.servlet.AutoConfigureMockMvc;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.jdbc.core.JdbcTemplate;
+import org.springframework.test.context.ActiveProfiles;
 import org.springframework.test.web.servlet.MockMvc;
 import org.springframework.test.web.servlet.MvcResult;
 
 @SpringBootTest
 @AutoConfigureMockMvc
+@ActiveProfiles("test")
 class AnalysisApiTest {
     private static final String TEXT =
             "This membership renews automatically each year. You must provide written notice thirty days before renewal. A cancellation fee of fifty dollars applies.";
@@ -239,5 +241,93 @@ class AnalysisApiTest {
             }
             assertThat(claimed).isEqualTo(1);
         }
+    }
+
+    @Test
+    void concurrentSubmissionsCannotBypassTheActiveJobLimit() throws Exception {
+        Cookie owner = session();
+        try (var executor = java.util.concurrent.Executors.newFixedThreadPool(8)) {
+            var tasks =
+                    java.util.stream.IntStream.range(0, 8)
+                            .mapToObj(
+                                    index ->
+                                            (java.util.concurrent.Callable<Integer>)
+                                                    () ->
+                                                            mvc.perform(
+                                                                            multipart(
+                                                                                            "/api/analyses")
+                                                                                    .param(
+                                                                                            "text",
+                                                                                            TEXT)
+                                                                                    .cookie(owner)
+                                                                                    .header(
+                                                                                            "Origin",
+                                                                                            "http://localhost:3000"))
+                                                                    .andReturn()
+                                                                    .getResponse()
+                                                                    .getStatus())
+                            .toList();
+            java.util.List<Integer> statuses = new java.util.ArrayList<>();
+            for (var result : executor.invokeAll(tasks)) {
+                statuses.add(result.get());
+            }
+            assertThat(statuses.stream().filter(value -> value == 202).count()).isEqualTo(2);
+            assertThat(statuses.stream().filter(value -> value == 429).count()).isEqualTo(6);
+            assertThat(
+                            jdbc.queryForObject(
+                                    "SELECT COUNT(*) FROM analysis_admissions", Integer.class))
+                    .isEqualTo(2);
+        }
+    }
+
+    @Test
+    void streamsReportDeletionAndRejectsExcessConnections() throws Exception {
+        Cookie owner = session();
+        String id = create(owner);
+        java.util.List<MvcResult> connections = new java.util.ArrayList<>();
+        try {
+            for (int index = 0; index < 3; index++) {
+                connections.add(
+                        mvc.perform(get("/api/analyses/" + id + "/events").cookie(owner))
+                                .andExpect(request().asyncStarted())
+                                .andReturn());
+            }
+            mvc.perform(get("/api/analyses/" + id + "/events").cookie(owner))
+                    .andExpect(status().isTooManyRequests());
+        } finally {
+            repository.delete(
+                    UUID.fromString(id),
+                    dev.termsofsurrender.privacy.Sessions.hash(owner.getValue()));
+            streams.publishSnapshots();
+            for (MvcResult connection : connections) {
+                connection.getAsyncResult(2000);
+                mvc.perform(asyncDispatch(connection))
+                        .andExpect(
+                                content()
+                                        .string(
+                                                org.hamcrest.Matchers.containsString(
+                                                        "event:unavailable")));
+            }
+        }
+    }
+
+    @Test
+    void expiredLeasesAndDeletedReportsCannotBeCompleted() throws Exception {
+        String id = create(session());
+        var job = repository.claim().orElseThrow();
+        jdbc.update(
+                "UPDATE analyses SET lease_until = ? WHERE id = ?",
+                Timestamp.from(Instant.now().minusSeconds(1)),
+                id);
+        repository.complete(job.id(), engine.analyze(job.input()));
+        assertThat(
+                        jdbc.queryForObject(
+                                "SELECT status FROM analyses WHERE id = ?", String.class, id))
+                .isEqualTo("PROCESSING");
+        repository.cleanup();
+        assertThat(
+                        jdbc.queryForObject(
+                                "SELECT status FROM analyses WHERE id = ?", String.class, id))
+                .isEqualTo("FAILED");
     }
 }

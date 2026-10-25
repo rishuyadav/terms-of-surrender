@@ -23,6 +23,8 @@ server:
     include-stacktrace: never
   tomcat:
     max-http-form-post-size: 11MB
+    # Drain a bounded rejected request so clients receive 413 instead of a reset.
+    max-swallow-size: 12MB
 management:
   endpoints:
     web:

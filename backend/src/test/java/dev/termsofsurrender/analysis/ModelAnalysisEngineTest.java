@@ -129,4 +129,85 @@ class ModelAnalysisEngineTest {
                         org.mockito.ArgumentMatchers.<HttpResponse.BodyHandler<byte[]>>any()))
                 .thenReturn(CompletableFuture.completedFuture(response));
     }
+
+    @Test
+    void rejectsMalformedResponsesWithoutLeakingProviderContent() throws Exception {
+        respond(200, Map.of("findings", "not-an-array"), "stop");
+        assertThatThrownBy(
+                        () ->
+                                new ModelAnalysisEngine(
+                                                config, mapper, new EvidenceValidator(), client)
+                                        .analyze(input))
+                .isInstanceOf(IllegalStateException.class)
+                .hasMessage("Invalid model response shape");
+        @SuppressWarnings("unchecked")
+        HttpResponse<byte[]> response = mock(HttpResponse.class);
+        when(response.statusCode()).thenReturn(200);
+        when(response.body())
+                .thenReturn("private-provider-content, not JSON".getBytes(StandardCharsets.UTF_8));
+        when(client.sendAsync(
+                        any(HttpRequest.class),
+                        org.mockito.ArgumentMatchers.<HttpResponse.BodyHandler<byte[]>>any()))
+                .thenReturn(CompletableFuture.completedFuture(response));
+        assertThatThrownBy(
+                        () ->
+                                new ModelAnalysisEngine(
+                                                config, mapper, new EvidenceValidator(), client)
+                                        .analyze(input))
+                .isInstanceOf(IllegalStateException.class)
+                .hasMessage("Model request unavailable");
+    }
+
+    @Test
+    void cancelsTheNetworkRequestWhenTheFullResponseTimesOut() throws Exception {
+        @SuppressWarnings("unchecked")
+        CompletableFuture<HttpResponse<byte[]>> pending = mock(CompletableFuture.class);
+        when(pending.get(35, java.util.concurrent.TimeUnit.SECONDS))
+                .thenThrow(new java.util.concurrent.TimeoutException());
+        when(client.sendAsync(
+                        any(HttpRequest.class),
+                        org.mockito.ArgumentMatchers.<HttpResponse.BodyHandler<byte[]>>any()))
+                .thenReturn(pending);
+        assertThatThrownBy(
+                        () ->
+                                new ModelAnalysisEngine(
+                                                config, mapper, new EvidenceValidator(), client)
+                                        .analyze(input))
+                .isInstanceOf(IllegalStateException.class)
+                .hasMessage("Model request unavailable");
+        org.mockito.Mockito.verify(pending).cancel(true);
+    }
+
+    @Test
+    void deduplicatesQuotesAndWithholdsInvalidSeverityAndMissingFields() throws Exception {
+        Map<String, String> valid =
+                Map.of(
+                        "blockId",
+                        "p1-b1",
+                        "quote",
+                        "This agreement renews automatically each year.",
+                        "category",
+                        "Renewal",
+                        "impact",
+                        "HIGH",
+                        "title",
+                        "Check renewal",
+                        "explanation",
+                        "The agreement describes annual renewal.",
+                        "whyItMatters",
+                        "Notice may be needed.",
+                        "suggestedQuestion",
+                        "How do I provide notice?");
+        Map<String, String> invalid = new java.util.HashMap<>(valid);
+        invalid.put("impact", "ILLEGAL");
+        Map<String, String> missing = new java.util.HashMap<>(valid);
+        missing.remove("title");
+        respond(200, Map.of("findings", List.of(valid, valid, invalid, missing)), "stop");
+        var report =
+                new ModelAnalysisEngine(config, mapper, new EvidenceValidator(), client)
+                        .analyze(input);
+        assertThat(report.findings()).hasSize(1);
+        assertThat(report.findings().getFirst().impact()).isEqualTo(Analysis.Impact.HIGH);
+        assertThat(report.limitations()).anyMatch(value -> value.startsWith("2 model finding(s)"));
+    }
 }
