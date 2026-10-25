@@ -7,6 +7,7 @@ import org.springframework.http.ProblemDetail;
 import org.springframework.web.ErrorResponse;
 import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.web.bind.annotation.RestControllerAdvice;
+import org.springframework.web.context.request.async.AsyncRequestNotUsableException;
 import org.springframework.web.method.annotation.MethodArgumentTypeMismatchException;
 import org.springframework.web.multipart.MaxUploadSizeExceededException;
 import org.springframework.web.multipart.support.MissingServletRequestPartException;
@@ -14,6 +15,11 @@ import org.springframework.web.multipart.support.MissingServletRequestPartExcept
 @RestControllerAdvice
 public class ApiErrors {
     private static final Logger LOG = LoggerFactory.getLogger(ApiErrors.class);
+
+    @ExceptionHandler(AsyncRequestNotUsableException.class)
+    void disconnected() {
+        // A disconnected async response cannot carry Problem Details (or any further writes).
+    }
 
     @ExceptionHandler(ApiException.class)
     ProblemDetail api(ApiException exception) {

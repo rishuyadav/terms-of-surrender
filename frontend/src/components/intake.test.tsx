@@ -1,6 +1,7 @@
 import { fireEvent, render, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { beforeEach, describe, expect, it, vi } from "vitest";
+import { renderToString } from "react-dom/server";
 import { Intake } from "./intake";
 import { createAnalysis, establishSession } from "@/lib/api";
 
@@ -22,6 +23,15 @@ beforeEach(() => {
 });
 
 describe("contract intake", () => {
+  it("renders server controls disabled until client handlers are attached", () => {
+    const html = new DOMParser().parseFromString(renderToString(<Intake />), "text/html");
+    for (const selector of ["textarea", "select", ".input-tab", ".sample-card"]) {
+      const elements = html.querySelectorAll(selector);
+      expect(elements.length).toBeGreaterThan(0);
+      elements.forEach((element) => expect(element.hasAttribute("disabled")).toBe(true));
+    }
+    expect(establishSession).not.toHaveBeenCalled();
+  });
   it("accepts a DOCX file and submits it with the selected context", async () => {
     vi.mocked(createAnalysis).mockResolvedValueOnce({ id: "docx-report" } as Awaited<
       ReturnType<typeof createAnalysis>

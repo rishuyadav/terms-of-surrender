@@ -21,8 +21,10 @@ import { Brand } from "./brand";
 import { createAnalysis, establishSession } from "@/lib/api";
 import { samples } from "@/lib/samples";
 import type { Category, Jurisdiction, SessionConfig } from "@/lib/types";
+import { useHydrated } from "@/hooks/use-hydrated";
 
 export function Intake() {
+  const hydrated = useHydrated();
   const router = useRouter();
   const fileInput = useRef<HTMLInputElement>(null);
   const [inputMode, setInputMode] = useState<"text" | "file">("text");
@@ -141,6 +143,7 @@ export function Intake() {
               <button
                 type="button"
                 className={inputMode === "text" ? "input-tab active" : "input-tab"}
+                disabled={!hydrated}
                 aria-pressed={inputMode === "text"}
                 onClick={() => {
                   setInputMode("text");
@@ -152,6 +155,7 @@ export function Intake() {
               <button
                 type="button"
                 className={inputMode === "file" ? "input-tab active" : "input-tab"}
+                disabled={!hydrated}
                 aria-pressed={inputMode === "file"}
                 onClick={() => {
                   setInputMode("file");
@@ -172,6 +176,7 @@ export function Intake() {
                 </label>
                 <textarea
                   id="contract-text"
+                  disabled={!hydrated}
                   value={text}
                   maxLength={config?.maxCharacters ?? 80000}
                   onChange={(event) => {
@@ -213,6 +218,7 @@ export function Intake() {
                   aria-label="Upload contract PDF or DOCX"
                   className="sr-only"
                   type="file"
+                  disabled={!hydrated}
                   accept=".pdf,.docx,application/pdf,application/vnd.openxmlformats-officedocument.wordprocessingml.document"
                   onChange={(event) => selectFile(event.target.files?.[0])}
                 />
@@ -268,6 +274,7 @@ export function Intake() {
                   Your location
                   <select
                     value={jurisdiction}
+                    disabled={!hydrated}
                     onChange={(event) => setJurisdiction(event.target.value as Jurisdiction)}
                   >
                     <option value="UNSPECIFIED">Not specified</option>
@@ -279,6 +286,7 @@ export function Intake() {
                   Agreement type
                   <select
                     value={category}
+                    disabled={!hydrated}
                     onChange={(event) => setCategory(event.target.value as Category)}
                   >
                     <option value="CONSUMER">Consumer / subscription</option>
@@ -291,6 +299,7 @@ export function Intake() {
                   <input
                     type="text"
                     value={region}
+                    disabled={!hydrated}
                     maxLength={80}
                     onChange={(event) => setRegion(event.target.value)}
                     placeholder={jurisdiction === "INDIA" ? "e.g. Maharashtra" : "e.g. California"}
@@ -335,7 +344,11 @@ export function Intake() {
                     : "Connecting to analysis service…"}
                 </span>
               </div>
-              <button className="primary-button" type="submit" disabled={!config || submitting}>
+              <button
+                className="primary-button"
+                type="submit"
+                disabled={!hydrated || !config || submitting}
+              >
                 {submitting ? (
                   <>
                     <LoaderCircle className="spin" size={17} /> Starting analysis…
@@ -360,6 +373,7 @@ export function Intake() {
                 type="button"
                 key={sample.id}
                 className={`sample-card${selectedSample === sample.id ? " selected" : ""}`}
+                disabled={!hydrated}
                 onClick={() => {
                   setText(sample.text);
                   setFile(null);

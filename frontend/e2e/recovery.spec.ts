@@ -3,6 +3,32 @@ import { expect, test } from "@playwright/test";
 import { analyzeSample } from "./helpers";
 import type { AnalysisView } from "../src/lib/types";
 
+test("intake waits for hydration and preserves the first pasted agreement", async ({ page }) => {
+  let releaseScripts!: () => void;
+  const scripts = new Promise<void>((resolve) => {
+    releaseScripts = resolve;
+  });
+  await page.route(/\/_next\/static\/.*\.js(?:\?.*)?$/, async (route) => {
+    await scripts;
+    await route.continue();
+  });
+  try {
+    await page.goto("/", { waitUntil: "commit" });
+    await expect(page.getByLabel("Contract text", { exact: true })).toBeDisabled();
+    await expect(page.getByRole("button", { name: /The gym membership/ })).toBeDisabled();
+  } finally {
+    releaseScripts();
+  }
+  const text =
+    "The project calendar lists a meeting on Monday morning. The parties will meet at the office to discuss their schedule and review the agenda.";
+  await expect(page.getByLabel("Contract text", { exact: true })).toBeEditable();
+  await page.getByLabel("Contract text", { exact: true }).fill(text);
+  await page.getByRole("button", { name: "Read the fine print" }).click();
+  await expect(page.getByRole("heading", { name: "No topics flagged. Keep reading." })).toBeVisible(
+    { timeout: 20000 },
+  );
+});
+
 test("recovers from an unavailable session service", async ({ page }) => {
   let attempts = 0;
   await page.route("**/api/session", (route) =>
