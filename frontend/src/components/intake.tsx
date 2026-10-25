@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useRef, useState, type FormEvent } from "react";
+import { useEffect, useRef, useState, useCallback, type FormEvent } from "react";
 import { useRouter } from "next/navigation";
 import {
   ArrowDown,
@@ -87,6 +87,9 @@ export function Intake() {
   const [urlError, setUrlError] = useState<string | null>(null);
   const [fetchedTitle, setFetchedTitle] = useState<string | null>(null);
   const [fetchedPreview, setFetchedPreview] = useState<string | null>(null);
+  const [fetchTruncated, setFetchTruncated] = useState(false);
+  // Abort controller ref for cancelling in-flight URL fetches when a new one starts.
+  const fetchAbortRef = useRef<AbortController | null>(null);
 
   useEffect(() => {
     const controller = new AbortController();
@@ -97,6 +100,15 @@ export function Intake() {
       });
     return () => controller.abort();
   }, [retry]);
+
+  // Cancel any in-flight URL fetch when urlInput is cleared.
+  useEffect(() => {
+    if (!urlInput && fetchAbortRef.current) {
+      fetchAbortRef.current.abort();
+      fetchAbortRef.current = null;
+      setUrlFetching(false);
+    }
+  }, [urlInput]);
 
   // Persist draft text and context to sessionStorage whenever they change.
   useEffect(() => {
@@ -148,26 +160,37 @@ export function Intake() {
     return host.includes(".");
   }
 
-  async function fetchUrl() {
+  const fetchUrl = useCallback(async () => {
+    // Cancel any in-flight fetch before starting a new one.
+    if (fetchAbortRef.current) {
+      fetchAbortRef.current.abort();
+    }
+    const controller = new AbortController();
+    fetchAbortRef.current = controller;
+
     setUrlFetching(true);
     setUrlError(null);
     setFetchedTitle(null);
     setFetchedPreview(null);
+    setFetchTruncated(false);
     try {
-      const result = await fetchPageText(urlInput);
+      const result = await fetchPageText(urlInput, controller.signal);
+      if (controller.signal.aborted) return;
       setText(result.text);
       setFetchedTitle(result.title);
       setFetchedPreview(result.text.slice(0, 300));
+      setFetchTruncated(result.truncated ?? false);
     } catch (cause) {
+      if (cause instanceof DOMException && cause.name === "AbortError") return;
       setUrlError(
         cause instanceof Error
           ? cause.message
           : "The page could not be fetched. Paste the text directly.",
       );
     } finally {
-      setUrlFetching(false);
+      if (!controller.signal.aborted) setUrlFetching(false);
     }
-  }
+  }, [urlInput]);
 
   async function submit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
@@ -315,6 +338,13 @@ export function Intake() {
                         {fetchedPreview.length >= 300 ? "…" : ""}&rdquo;
                       </p>
                     )}
+                    {fetchTruncated && (
+                      <p className="url-fetch-truncated" role="status">
+                        This page is long — only the first 80,000 characters were extracted. The
+                        rest of the agreement was not analyzed. If important clauses appear near the
+                        end, paste the full text directly.
+                      </p>
+                    )}
                     <p className="url-fetched-ready">
                       <Check size={13} /> Text extracted — ready to analyze below
                     </p>
@@ -366,6 +396,15 @@ export function Intake() {
                 <label htmlFor="contract-text" className="sr-only">
                   Contract text
                 </label>
+                {!text && !selectedSample && (
+                  <div className="url-hint" aria-hidden="true">
+                    <Globe size={13} />
+                    <span>
+                      Have a link? Paste a <strong>https://</strong> URL and we&rsquo;ll fetch the
+                      text for you.
+                    </span>
+                  </div>
+                )}
                 <textarea
                   id="contract-text"
                   disabled={!hydrated}
@@ -384,7 +423,7 @@ export function Intake() {
                     }
                   }}
                   placeholder={
-                    "Paste the terms you're about to agree to…\n\nA subscription. A gym membership. That freelance contract sitting in your inbox."
+                    "Paste the terms you're about to agree to…\n\nA subscription. A gym membership. That freelance contract sitting in your inbox.\n\nTip: paste a URL (https://…) to fetch text from a public page automatically."
                   }
                   spellCheck={false}
                   aria-describedby="text-help"
@@ -393,7 +432,7 @@ export function Intake() {
                   <span>
                     {selectedSample
                       ? "Fictional sample loaded — edit or analyze below"
-                      : "Or choose a fictional sample below to see how it works"}
+                      : "Paste text or a URL · choose a sample below · or upload a PDF/DOCX"}
                   </span>
                   <span>{text.length.toLocaleString()} / 80,000</span>
                 </div>

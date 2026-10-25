@@ -21,7 +21,6 @@ import java.util.concurrent.TimeUnit;
 import java.util.concurrent.TimeoutException;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
-import java.util.stream.Collectors;
 
 /** OpenAI-compatible adapter. Provider failures never silently downgrade to preview mode. */
 public class ModelAnalysisEngine implements AnalysisEngine, AutoCloseable {
@@ -143,6 +142,13 @@ public class ModelAnalysisEngine implements AnalysisEngine, AutoCloseable {
 
     /** Detect references to external documents not supplied in the text. */
     private List<String> detectMissingReferences(List<Document.Block> blocks) {
+        // Build full document text for presence checking.
+        StringBuilder fullText = new StringBuilder();
+        for (Document.Block block : blocks) {
+            fullText.append(block.text().toLowerCase(java.util.Locale.ROOT)).append("\n");
+        }
+        String docLower = fullText.toString();
+
         Set<String> refs = new HashSet<>();
         for (Document.Block block : blocks) {
             Matcher m = REFERENCE_PATTERN.matcher(block.text());
@@ -151,15 +157,33 @@ public class ModelAnalysisEngine implements AnalysisEngine, AutoCloseable {
                 if (ref.length() <= 60) {
                     refs.add(ref);
                 }
-                if (refs.size() >= 5) {
+                if (refs.size() >= 10) {
                     break;
                 }
             }
-            if (refs.size() >= 5) {
+            if (refs.size() >= 10) {
                 break;
             }
         }
-        return new ArrayList<>(refs);
+        // Keep only references that don't appear more than once in the full text
+        // (first occurrence is the cross-reference itself; a second suggests the content is
+        // present).
+        List<String> missing = new ArrayList<>();
+        for (String ref : refs) {
+            String refLower = ref.toLowerCase(java.util.Locale.ROOT);
+            int first = docLower.indexOf(refLower);
+            if (first >= 0) {
+                int second = docLower.indexOf(refLower, first + refLower.length());
+                if (second < 0) {
+                    // Only one occurrence — likely a cross-reference to an absent document.
+                    missing.add(ref);
+                }
+            }
+            if (missing.size() >= 5) {
+                break;
+            }
+        }
+        return missing;
     }
 
     @Override
@@ -168,12 +192,16 @@ public class ModelAnalysisEngine implements AnalysisEngine, AutoCloseable {
         Set<String> seen = new HashSet<>();
         int rejected = 0;
         String summary = null;
-        List<String> rawPriorities = new ArrayList<>();
         List<Analysis.ChecklistItem> checklist = new ArrayList<>();
 
         // Pre-scan: extract defined terms and detect missing referenced documents.
         Map<String, String> definitions = extractDefinitions(input.document().blocks());
         List<String> missingRefs = detectMissingReferences(input.document().blocks());
+
+        Set<String> allBlockIds =
+                input.document().blocks().stream()
+                        .map(Document.Block::id)
+                        .collect(java.util.stream.Collectors.toSet());
 
         List<List<Document.Block>> chunks = chunks(input.document().blocks());
         if (chunks.size() > 12) {
@@ -190,18 +218,6 @@ public class ModelAnalysisEngine implements AnalysisEngine, AutoCloseable {
                 String rawSummary = response.path("summary").asText(null);
                 if (rawSummary != null && !rawSummary.isBlank()) {
                     summary = rawSummary.length() > 600 ? rawSummary.substring(0, 600) : rawSummary;
-                }
-                JsonNode prioritiesNode = response.path("priorities");
-                if (prioritiesNode.isArray()) {
-                    for (JsonNode p : prioritiesNode) {
-                        if (rawPriorities.size() >= 3) {
-                            break;
-                        }
-                        String pid = p.asText("").strip();
-                        if (!pid.isBlank() && pid.length() <= 20) {
-                            rawPriorities.add(pid);
-                        }
-                    }
                 }
                 JsonNode checklistNode = response.path("checklist");
                 if (checklistNode.isArray()) {
@@ -251,6 +267,17 @@ public class ModelAnalysisEngine implements AnalysisEngine, AutoCloseable {
                             }
                         }
                     }
+                    // Filter: must exist in document, not be the same as this finding's blockId,
+                    // max 3, deduplicated.
+                    Set<String> validatedRelated = new java.util.LinkedHashSet<>();
+                    for (String rid : relatedBlockIds) {
+                        if (!rid.equals(blockId) && allBlockIds.contains(rid)) {
+                            validatedRelated.add(rid);
+                        }
+                        if (validatedRelated.size() >= 3) {
+                            break;
+                        }
+                    }
                     Analysis.Finding finding =
                             new Analysis.Finding(
                                     "finding-" + (findings.size() + 1),
@@ -261,7 +288,7 @@ public class ModelAnalysisEngine implements AnalysisEngine, AutoCloseable {
                                     required(proposal, "whyItMatters", 1200),
                                     evidence.get(),
                                     required(proposal, "suggestedQuestion", 500),
-                                    List.copyOf(relatedBlockIds));
+                                    List.copyOf(validatedRelated));
                     if (seen.add(
                             blockId + ":" + evidence.get().start() + ":" + evidence.get().end())) {
                         findings.add(finding);
@@ -271,10 +298,19 @@ public class ModelAnalysisEngine implements AnalysisEngine, AutoCloseable {
                 }
             }
         }
-        Set<String> findingIds = new HashSet<>();
-        findings.forEach(f -> findingIds.add(f.id()));
-        List<String> priorities =
-                rawPriorities.stream().filter(findingIds::contains).collect(Collectors.toList());
+        // Derive priorities server-side from all accepted findings.
+        // HIGH findings first (appearance order), then REVIEW, up to 3 total.
+        List<String> priorities = new ArrayList<>();
+        for (Analysis.Finding f : findings) {
+            if (f.impact() == Analysis.Impact.HIGH && priorities.size() < 3) {
+                priorities.add(f.id());
+            }
+        }
+        for (Analysis.Finding f : findings) {
+            if (f.impact() == Analysis.Impact.REVIEW && priorities.size() < 3) {
+                priorities.add(f.id());
+            }
+        }
         List<String> limitations =
                 new ArrayList<>(
                         List.of(

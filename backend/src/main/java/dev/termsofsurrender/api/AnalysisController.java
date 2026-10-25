@@ -20,6 +20,7 @@ import org.springframework.web.bind.annotation.DeleteMapping;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
+import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
@@ -78,7 +79,8 @@ public class AnalysisController {
                 "title", result.title(),
                 "text", result.text(),
                 "sourceUrl", result.sourceUrl(),
-                "charCount", result.text().length());
+                "charCount", result.text().length(),
+                "truncated", result.truncated());
     }
 
     @PostMapping(value = "/analyses", consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
@@ -127,9 +129,11 @@ public class AnalysisController {
         return ResponseEntity.noContent().build();
     }
 
+    record AskRequest(String question) {}
+
     @PostMapping("/analyses/{id}/ask")
     Map<String, Object> ask(
-            @PathVariable UUID id, @RequestParam String question, HttpServletRequest request) {
+            @PathVariable UUID id, @RequestBody AskRequest body, HttpServletRequest request) {
         if (!qa.isAvailable()) {
             throw new ApiException(
                     org.springframework.http.HttpStatus.SERVICE_UNAVAILABLE,
@@ -143,18 +147,20 @@ public class AnalysisController {
             throw ApiException.invalid(
                     "ANALYSIS_NOT_READY", "The analysis must be complete before asking questions.");
         }
-        if (question == null || question.isBlank() || question.length() > 300) {
+        if (body.question() == null
+                || body.question().isBlank()
+                || body.question().length() > 300) {
             throw ApiException.invalid("INVALID_QUESTION", "Question must be 1–300 characters.");
         }
         ContractQa.Answer answer =
-                qa.ask(view.document(), question.strip())
+                qa.ask(view.document(), body.question().strip())
                         .orElseThrow(
                                 () ->
                                         ApiException.invalid(
                                                 "QA_UNAVAILABLE", "Q&A is not available."));
         return Map.of(
                 "question",
-                question.strip(),
+                body.question().strip(),
                 "answer",
                 answer.answer() != null ? answer.answer() : "",
                 "blockId",

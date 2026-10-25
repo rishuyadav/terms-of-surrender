@@ -69,10 +69,11 @@ export interface FetchResult {
   text: string;
   sourceUrl: string;
   charCount: number;
+  truncated: boolean;
 }
 
-export const fetchPageText = (url: string) =>
-  request<FetchResult>(`/api/fetch?url=${encodeURIComponent(url)}`);
+export const fetchPageText = (url: string, signal?: AbortSignal) =>
+  request<FetchResult>(`/api/fetch?url=${encodeURIComponent(url)}`, { signal });
 
 export interface QaAnswer {
   question: string;
@@ -84,7 +85,8 @@ export interface QaAnswer {
 }
 
 export const askContract = (id: string, question: string) =>
-  request<QaAnswer>(
-    `/api/analyses/${encodeURIComponent(id)}/ask?question=${encodeURIComponent(question)}`,
-    { method: "POST" },
-  );
+  request<QaAnswer>(`/api/analyses/${encodeURIComponent(id)}/ask`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ question }),
+  });

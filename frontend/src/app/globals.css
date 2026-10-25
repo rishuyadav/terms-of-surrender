@@ -2015,6 +2015,16 @@ summary::-webkit-details-marker {
   margin: 0;
   font-weight: 500;
 }
+.url-fetch-truncated {
+  font-size: 10px;
+  color: #7a5a00;
+  background: #fff8e0;
+  border: 1px solid #e8d880;
+  border-radius: 4px;
+  padding: 7px 10px;
+  margin: 6px 0 4px;
+  line-height: 1.6;
+}
 .url-fetch-error {
   background: #fdf0f0;
   border: 1px solid #f0d0d0;
@@ -2028,6 +2038,27 @@ summary::-webkit-details-marker {
   font-size: 11px;
   color: #8b3030;
   margin: 0;
+}
+
+/* URL hint in text input area */
+.url-hint {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 7px 12px;
+  background: #f5f8ff;
+  border: 1px solid #d8e4f8;
+  border-radius: 6px;
+  font-size: 11px;
+  color: #5a6888;
+  margin-bottom: 6px;
+  line-height: 1.5;
+  pointer-events: none;
+  user-select: none;
+}
+.url-hint strong {
+  font-weight: 600;
+  color: #3a5080;
 }
 
 /* Source search */

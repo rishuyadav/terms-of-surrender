@@ -14,6 +14,7 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
+import java.util.Set;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.TimeUnit;
@@ -98,8 +99,13 @@ public class ContractQa {
         // Select the most relevant blocks by scoring each block's text overlap with the question.
         List<Document.Block> relevant = selectRelevantBlocks(document.blocks(), sanitized);
 
-        JsonNode response = callModel(document, relevant, sanitized);
-        return Optional.of(parseAnswer(document, response));
+        Set<String> retrievedIds =
+                relevant.stream()
+                        .map(Document.Block::id)
+                        .collect(java.util.stream.Collectors.toSet());
+
+        JsonNode response = callModel(document, relevant, sanitized, retrievedIds);
+        return Optional.of(parseAnswer(document, response, retrievedIds));
     }
 
     private List<Document.Block> selectRelevantBlocks(
@@ -145,7 +151,11 @@ public class ContractQa {
         return selected;
     }
 
-    private JsonNode callModel(Document document, List<Document.Block> blocks, String question) {
+    private JsonNode callModel(
+            Document document,
+            List<Document.Block> blocks,
+            String question,
+            Set<String> retrievedIds) {
         CompletableFuture<HttpResponse<byte[]>> pending = null;
         try {
             Map<String, Object> userPayload = new HashMap<>();
@@ -207,7 +217,7 @@ public class ContractQa {
         }
     }
 
-    private Answer parseAnswer(Document document, JsonNode response) {
+    private Answer parseAnswer(Document document, JsonNode response, Set<String> retrievedIds) {
         boolean abstain = response.path("abstain").asBoolean(false);
         if (abstain) {
             String reason =
@@ -232,14 +242,27 @@ public class ContractQa {
         String blockId = citation.path("blockId").asText(null);
         String quote = citation.path("quote").asText(null);
 
-        // Validate the citation against the actual document text.
-        if (blockId != null && quote != null && quote.length() >= 10) {
-            Optional<Analysis.Evidence> evidence = validator.locate(document, blockId, quote);
-            if (evidence.isPresent()) {
-                return new Answer(answer, blockId, quote, false, null);
-            }
+        if (blockId == null || quote == null || quote.length() < 10) {
+            return new Answer(
+                    null,
+                    null,
+                    null,
+                    true,
+                    "No supporting passage was identified in the document.");
         }
-        // Citation could not be validated — return the answer without a citation.
-        return new Answer(answer, null, null, false, null);
+
+        if (!retrievedIds.contains(blockId)) {
+            return new Answer(
+                    null, null, null, true, "The cited block was not in the retrieved context.");
+        }
+
+        // Validate the citation against the actual document text.
+        Optional<Analysis.Evidence> evidence = validator.locate(document, blockId, quote);
+        if (evidence.isPresent()) {
+            return new Answer(answer, blockId, quote, false, null);
+        }
+
+        return new Answer(
+                null, null, null, true, "The cited passage could not be verified in the document.");
     }
 }

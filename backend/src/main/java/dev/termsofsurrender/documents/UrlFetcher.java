@@ -28,7 +28,7 @@ public class UrlFetcher {
     private static final int READ_TIMEOUT_S = 12;
     private static final int MAX_REDIRECTS = 3;
 
-    public record FetchResult(String title, String text, String sourceUrl) {}
+    public record FetchResult(String title, String text, String sourceUrl, boolean truncated) {}
 
     private final HttpClient client;
 
@@ -98,7 +98,9 @@ public class UrlFetcher {
                 throw ApiException.invalid(
                         "URL_INVALID", "The redirect destination is not a valid URL.");
             }
-            return fetchWithRedirects(next, remaining - 1);
+            // Validate the redirect destination through the same rules as the initial URL.
+            URI validatedNext = parseAndValidate(next.toString());
+            return fetchWithRedirects(validatedNext, remaining - 1);
         }
         if (status == 401 || status == 403) {
             throw ApiException.invalid(
@@ -161,9 +163,10 @@ public class UrlFetcher {
                     "This page has too little readable text. It may require a login, use JavaScript to load content, or the URL may not point to the terms page. Paste the text directly.");
         }
 
+        boolean truncated = false;
         if (text.length() > MAX_EXTRACTED_CHARS) {
+            truncated = true;
             text = text.substring(0, MAX_EXTRACTED_CHARS);
-            // Don't truncate mid-word
             int lastSpace = text.lastIndexOf(' ');
             if (lastSpace > MAX_EXTRACTED_CHARS - 200) {
                 text = text.substring(0, lastSpace);
@@ -175,7 +178,7 @@ public class UrlFetcher {
             title = title.substring(0, 80).strip() + "\u2026";
         }
 
-        return new FetchResult(title, text, sourceUrl);
+        return new FetchResult(title, text, sourceUrl, truncated);
     }
 
     private String extractStructuredText(org.jsoup.nodes.Element element) {

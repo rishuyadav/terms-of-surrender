@@ -1,88 +1,94 @@
 # Terms of Surrender
 
-An evidence-first contract interpreter: understand consequential terms, verify the source, and decide what to do next.
+**Paste a contract. Get findings you can actually verify.**
 
-## Implementation status
+Terms of Surrender is an evidence-first contract interpreter. It reads the agreements you're about to sign — subscriptions, gym memberships, app terms, freelance contracts — and tells you what the important clauses actually mean, in plain English, with the exact source text so you can check every claim.
 
-The first vertical slice is implemented. This is an early preview, not a complete legal-advice product. See [the architecture](docs/architecture.md) and [roadmap](docs/roadmap.md) for scope and safety boundaries. The original [idea.txt](idea.txt) is retained as brainstorming context.
+It is not a law firm and not an autonomous AI lawyer. It tells you what the contract *says*, surfaces the questions worth asking, and lets you read the evidence yourself.
 
-### Available now
+---
 
-- Pasted text, text-based PDFs, and DOCX body text/tables, with bounded input and extraction warnings.
-- Short-lived PDF/DOCX parser processes with bounded memory regions, I/O, concurrency, and execution time; no in-process fallback.
-- Independent US/India location and consumer/freelance agreement choices.
-- Offline keyword preview, or explicitly enabled OpenAI-compatible model analysis.
-- Exact evidence validation, source highlights, topic filters, and practical questions.
-- Responsive desktop split view and mobile source/findings navigation.
-- Persistent background jobs, live status, refresh recovery, and polling fallback.
-- Private anonymous sessions, deletion, 24-hour default retention, and session quotas.
-- Private JSON report downloads and three clearly fictional sample agreements.
+## What it does
 
-**Not yet implemented:** URL ingestion, photo OCR, reviewed legal overlays, contract chat, opt-out drafts, negotiation/redline exports, and share images. Context selection does not enable jurisdiction-specific legal advice.
+1. **You paste text, upload a PDF/DOCX, or drop a public URL.** Terms of Surrender extracts the readable text.
 
-### Local development
+2. **It finds consequential clauses.** Automatic-renewal traps, one-sided arbitration, broad IP assignments, unilateral change rights, and more — matched against the actual words in your document.
 
-Requirements: Java 21, Maven 3.9+, Node.js 24 LTS (recommended) and npm.
+3. **Every finding has a source.** Click any finding to see the exact paragraph it came from, highlighted in the document. No citation, no finding.
+
+4. **A "Start here" section** highlights the 2-3 most important things to read first, so you know where to focus.
+
+5. **A "Before you agree" checklist** gives you concrete actions: what to ask the other party (ASK), what facts to check (VERIFY), and what options you have (CONSIDER).
+
+6. **You can ask questions.** With an AI provider configured, type a specific question ("What happens if I cancel after 30 days?") and get a grounded answer that cites the exact clause — or an explicit "not found" if the document doesn't say.
+
+7. **Download your report.** Export as JSON for your records or HTML to read offline.
+
+---
+
+## What it doesn't do
+
+- It doesn't give legal advice or tell you whether a clause is enforceable.
+- It doesn't know what law applies to your specific situation.
+- It can't read scanned PDFs or images (text-based PDFs and DOCX only).
+- It doesn't store your documents after 24 hours, and it has no account system.
+
+---
+
+## Try it now
+
+**No account. No login. Paste and go.**
+
+The home page includes four fictional sample agreements — a US gym membership, an Indian app's terms, a US freelance contract, and an Indian freelance agreement — so you can see a real report before uploading anything of your own.
+
+---
+
+## Running locally
+
+**Requirements:** Java 21, Maven 3.9+, Node.js 20+ and npm.
 
 ```sh
-# Terminal 1
+# Terminal 1 — backend
 cd backend
 mvn spring-boot:run
 
-# Terminal 2
+# Terminal 2 — frontend
 cd frontend
 npm ci
 npm run dev
 ```
 
-Open http://localhost:3000. The frontend proxies `/api` to the backend at http://localhost:8081, keeping browser requests same-origin. No model API key or Docker is required for the clearly labeled rule-based preview. Local data is stored in `backend/.data/` and expires after 24 hours by default.
+Open **http://localhost:3000**. The frontend proxies `/api` to the backend at port 8081.
 
-The project-local Maven settings use Maven Central rather than machine-wide corporate mirrors. They do not modify your global Maven configuration.
+No AI key is required. Without one, you get a rule-based keyword preview — clearly labeled, useful for the most common clause patterns. Local data is stored in `backend/.data/` and expires automatically.
 
-### Enable model-assisted analysis
+---
 
-Export these variables in the backend shell before starting Maven:
+## Enable AI-assisted analysis
+
+Export these variables before starting the backend:
 
 ```sh
 export MODEL_ENABLED=true
 export MODEL_API_KEY='your-provider-key'
 export MODEL_NAME='your-provider-model-id'
-# Optional: an OpenAI-compatible HTTPS base URL, default https://api.openai.com/v1
+# OpenAI-compatible base URL (default: https://api.openai.com/v1)
 export MODEL_BASE_URL='https://api.openai.com/v1'
-mvn spring-boot:run
+cd backend && mvn spring-boot:run
 ```
 
-The adapter requires chat completions with JSON-object responses and `max_completion_tokens` support. It does not use autonomous tools. Requests have bounded input, response size, request count, and full-response timeouts. Provider failures mark a job as failed rather than silently substituting keyword results. Exact-source checks reject invented quotes, but **do not prove an interpretation is correct**.
+With a model configured, you get:
+- Full clause-by-clause AI analysis with explanations
+- A document summary and cross-section awareness
+- Defined-term resolution (the model knows what "the Service" means)
+- The "Ask the Contract" Q&A panel
+- Server-derived priorities and action checklist
 
-**Privacy:** extracted text is sent to your configured provider without guaranteed anonymization. Review that provider's retention, training, and regional-processing terms before using private documents. No paid-provider call is required by the test suite.
+**Privacy note:** Extracted text is sent to your configured provider. Review that provider's data retention and regional processing terms before uploading private documents. The test suite never calls a paid provider.
 
-### Verify
+---
 
-```sh
-# From backend/
-mvn -B -ntp verify
-# Apply the same Java formatting checked in CI:
-mvn spotless:apply
-
-# From frontend/
-npm run format:check
-npm run lint
-npm run typecheck
-npm test
-npm run build
-
-# Full browser flow; starts the API and frontend automatically
-npx playwright install chromium firefox webkit
-npm run test:e2e
-```
-
-Browser tests use isolated ports (13000 / 18080) and an in-memory database when starting their own backend. If a test service is already running on those ports, development tests reuse it; use only test/sample documents. CI starts fresh services. Desktop and mobile flows exercise analysis, exact source navigation, session isolation, refresh, and deletion.
-
-Do not run two Maven builds in the same `backend/target` directory concurrently, or run Next.js development and production builds against the same `.next` directory concurrently. Independent backend and frontend checks can run in parallel.
-
-`npm run build` prepares a standalone production server with local static assets; `npm start` runs that server. Set `PORT` and `HOSTNAME` to change its listener. `API_BASE_URL` is captured at build time.
-
-### PostgreSQL and containers
+## Docker / containers
 
 With Docker Compose installed:
 
@@ -92,22 +98,59 @@ cp .env.example .env
 docker compose up --build
 ```
 
-Only the frontend is exposed, on `127.0.0.1:3000` by default (`WEB_PORT` is configurable). The API and PostgreSQL communicate on the container network. The container path has been exercised with Podman Compose; verify it again in your target deployment environment. For a public deployment, use HTTPS, set `SECURE_COOKIES=true` and exact `ALLOWED_ORIGINS`, configure ingress rate limits and streaming, and complete the [deployment checklist](docs/operations.md). Do not expose this development setup as a production legal service.
+The frontend is available at `http://localhost:3000`. PostgreSQL and the API communicate on the internal container network.
 
-See [API documentation](docs/api.md) for endpoints and [operations](docs/operations.md) for configuration and known limits.
+For a public deployment, set `SECURE_COOKIES=true`, configure exact `ALLOWED_ORIGINS`, use HTTPS, and add ingress-level rate limits. See [`docs/operations.md`](docs/operations.md).
 
-See [testing](docs/testing.md) for the cross-browser matrix and isolated PostgreSQL/container verification commands.
-The latest recorded outcomes and their limitations are in [verification results](docs/test-results.md).
-DOCX import and its limits are covered in the [ingestion increment results](docs/docx-verification.md).
-See [parser isolation](docs/parser-isolation.md) for the new process boundary, deployment resource budgets, and why a reviewed OS sandbox is still required before unrestricted public uploads.
-Its latest verification results are recorded in [parser verification](docs/parser-verification.md).
+---
+
+## Verifying the build
+
+```sh
+# Backend — from backend/
+mvn -B -ntp verify
+mvn spotless:apply    # apply Java formatting
+
+# Frontend — from frontend/
+npm run typecheck
+npm run lint
+npm run build
+```
+
+---
+
+## How findings work
+
+- **HIGH** — a clause with a potentially significant practical consequence (e.g. automatic renewal, broad IP assignment, one-sided termination).
+- **REVIEW** — a clause worth reading carefully, where context or a missing attachment might change its meaning.
+- **FAVORABLE** — a clause that explicitly grants you a right, protection, or option (e.g. refund provision, explicit opt-out, notice before price changes).
+
+Every finding must point to an exact passage from your document. The source validation rejects invented quotes — if the evidence can't be found in the text, the finding is withheld.
+
+---
+
+## Architecture in brief
+
+| Layer | Technology |
+|---|---|
+| Frontend | Next.js · React · TypeScript |
+| Backend | Spring Boot 3 · Java 21 |
+| Local storage | H2 (file-backed) |
+| Production database | PostgreSQL |
+| AI analysis | Any OpenAI-compatible chat-completions API |
+| File parsing | Isolated worker processes (Apache PDFBox, Apache POI) |
+| Session | Anonymous cookie-based, 24-hour retention |
+
+Anonymous sessions expire automatically. No PII is required or collected.
+
+---
 
 ## Trust boundaries
 
-- Findings must point to exact passages in the supplied document.
-- Contract explanation is not a conclusion about legality or enforceability.
-- US and India are jurisdiction contexts; freelance is a contract category.
-- No jurisdiction-specific legal claims are enabled without a reviewed legal corpus.
-- Private documents are never published or cached across anonymous sessions.
-- No notices are sent, and no legal deadlines are invented.
-- Do not upload sensitive production documents to an unreviewed development deployment.
+- **Findings are not legal opinions.** They explain what the contract text says, not whether it's enforceable or what a court would decide.
+- **Jurisdiction is context, not law.** Choosing "United States" focuses analysis on consumer-relevant patterns; it does not invoke a reviewed legal corpus.
+- **Citations are verified, not infallible.** Quote validation confirms the passage exists in the document; it does not prove the interpretation is correct.
+- **External documents are out of scope.** If a contract references "Schedule A" and Schedule A isn't in the supplied text, that content is not analyzed.
+- **Q&A answers require document evidence.** If a question can't be answered from the text, the answer is withheld — not guessed.
+
+See [`docs/architecture.md`](docs/architecture.md) for the full design and [`docs/operations.md`](docs/operations.md) for deployment configuration.
