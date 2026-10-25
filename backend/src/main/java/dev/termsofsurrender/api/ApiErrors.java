@@ -25,7 +25,7 @@ public class ApiErrors {
         return problem(
                 HttpStatus.PAYLOAD_TOO_LARGE,
                 "UPLOAD_TOO_LARGE",
-                "Upload a PDF smaller than 10 MB.");
+                "Upload a document smaller than 10 MB.");
     }
 
     @ExceptionHandler({

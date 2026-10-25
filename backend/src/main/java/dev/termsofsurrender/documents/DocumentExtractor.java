@@ -22,19 +22,35 @@ public class DocumentExtractor {
         boolean hasFile = file != null && !file.isEmpty();
         if (hasText == hasFile) {
             throw ApiException.invalid(
-                    "INVALID_INPUT", "Provide either pasted text or one PDF, not both.");
+                    "INVALID_INPUT", "Provide either pasted text or one PDF/DOCX file, not both.");
         }
         if (hasText) {
             checkLength(text.length());
             return build("Pasted agreement", "TEXT", List.of(text), List.of());
         }
+        if (file.getSize() > 10 * 1024 * 1024) {
+            throw ApiException.invalid("UPLOAD_TOO_LARGE", "Upload a document smaller than 10 MB.");
+        }
+        if (file.getOriginalFilename() != null
+                && file.getOriginalFilename()
+                        .toLowerCase(java.util.Locale.ROOT)
+                        .endsWith(".docx")) {
+            try {
+                return build(
+                        "Uploaded agreement",
+                        "DOCX",
+                        List.of(new DocxTextExtractor().extract(file.getBytes())),
+                        List.of(
+                                "DOCX import reads body paragraphs and tables, not the complete Word layout. Headers, footers, footnotes, comments, images, text boxes, automatic numbering, and embedded content may be missing. Verify against the original before relying on this report.",
+                                "DOCX has no reliable page mapping. Source references identify extracted text, not Word pages. Field results may be stale; hidden text may be included."));
+            } catch (IOException exception) {
+                throw ApiException.invalid("UNREADABLE_DOCX", "The DOCX upload could not be read.");
+            }
+        }
         return pdf(file);
     }
 
     private Document pdf(MultipartFile file) {
-        if (file.getSize() > 10 * 1024 * 1024) {
-            throw ApiException.invalid("UPLOAD_TOO_LARGE", "Upload a PDF smaller than 10 MB.");
-        }
         try {
             byte[] bytes = file.getBytes();
             if (bytes.length < 5
@@ -44,7 +60,7 @@ public class DocumentExtractor {
                     || bytes[3] != 'F'
                     || bytes[4] != '-') {
                 throw ApiException.invalid(
-                        "UNSUPPORTED_FILE", "Only text-based PDFs are supported in this release.");
+                        "UNSUPPORTED_FILE", "Upload a text-based PDF or DOCX document.");
             }
             try (PDDocument pdf = Loader.loadPDF(bytes)) {
                 if (pdf.isEncrypted() || !pdf.getCurrentAccessPermission().canExtractContent()) {

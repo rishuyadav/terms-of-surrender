@@ -77,7 +77,7 @@ class DocumentExtractorTest {
                         TEXT.getBytes(java.nio.charset.StandardCharsets.UTF_8));
         assertThatThrownBy(() -> extractor.extract(null, fake))
                 .isInstanceOf(ApiException.class)
-                .hasMessageContaining("text-based PDFs");
+                .hasMessageContaining("text-based PDF");
         assertThatThrownBy(() -> extractor.extract(TEXT, fake))
                 .isInstanceOf(ApiException.class)
                 .hasMessageContaining("not both");
