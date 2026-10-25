@@ -79,6 +79,8 @@ Browser tests use isolated ports (13000 / 18080) and an in-memory database when 
 
 Do not run two Maven builds in the same `backend/target` directory concurrently, or run Next.js development and production builds against the same `.next` directory concurrently. Independent backend and frontend checks can run in parallel.
 
+`npm run build` prepares a standalone production server with local static assets; `npm start` runs that server. Set `PORT` and `HOSTNAME` to change its listener. `API_BASE_URL` is captured at build time.
+
 ### PostgreSQL and containers
 
 With Docker Compose installed:

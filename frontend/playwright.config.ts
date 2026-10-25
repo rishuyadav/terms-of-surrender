@@ -27,11 +27,11 @@ export default defineConfig({
       },
     },
     {
-      command: process.env.CI ? "npm run start -- --port 13000" : "npm run dev -- --port 13000",
+      command: process.env.CI ? "npm run start" : "npm run dev -- --port 13000",
       url: "http://localhost:13000",
       reuseExistingServer: !process.env.CI,
       timeout: 120000,
-      env: { API_BASE_URL: "http://localhost:18080" },
+      env: { API_BASE_URL: "http://localhost:18080", PORT: "13000", HOSTNAME: "127.0.0.1" },
     },
   ],
 });
