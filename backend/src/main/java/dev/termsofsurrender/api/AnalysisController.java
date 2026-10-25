@@ -2,6 +2,7 @@ package dev.termsofsurrender.api;
 
 import dev.termsofsurrender.AppProperties;
 import dev.termsofsurrender.analysis.Analysis;
+import dev.termsofsurrender.analysis.ContractQa;
 import dev.termsofsurrender.documents.Document;
 import dev.termsofsurrender.documents.DocumentExtractor;
 import dev.termsofsurrender.documents.DocumentIngestion;
@@ -34,6 +35,7 @@ public class AnalysisController {
     private final AnalysisRepository repository;
     private final AnalysisStreams streams;
     private final UrlFetcher urlFetcher;
+    private final ContractQa qa;
 
     public AnalysisController(
             Sessions sessions,
@@ -41,13 +43,15 @@ public class AnalysisController {
             DocumentIngestion extractor,
             AnalysisRepository repository,
             AnalysisStreams streams,
-            UrlFetcher urlFetcher) {
+            UrlFetcher urlFetcher,
+            ContractQa qa) {
         this.sessions = sessions;
         this.properties = properties;
         this.extractor = extractor;
         this.repository = repository;
         this.streams = streams;
         this.urlFetcher = urlFetcher;
+        this.qa = qa;
     }
 
     @GetMapping("/session")
@@ -121,5 +125,45 @@ public class AnalysisController {
             throw ApiException.notFound();
         }
         return ResponseEntity.noContent().build();
+    }
+
+    @PostMapping("/analyses/{id}/ask")
+    Map<String, Object> ask(
+            @PathVariable UUID id, @RequestParam String question, HttpServletRequest request) {
+        if (!qa.isAvailable()) {
+            throw new ApiException(
+                    org.springframework.http.HttpStatus.SERVICE_UNAVAILABLE,
+                    "QA_UNAVAILABLE",
+                    "Contract Q&A requires a configured AI provider. This deployment uses keyword"
+                            + " preview only.");
+        }
+        Analysis.View view =
+                repository.find(id, sessions.require(request)).orElseThrow(ApiException::notFound);
+        if (view.status() != Analysis.Status.COMPLETED) {
+            throw ApiException.invalid(
+                    "ANALYSIS_NOT_READY", "The analysis must be complete before asking questions.");
+        }
+        if (question == null || question.isBlank() || question.length() > 300) {
+            throw ApiException.invalid("INVALID_QUESTION", "Question must be 1–300 characters.");
+        }
+        ContractQa.Answer answer =
+                qa.ask(view.document(), question.strip())
+                        .orElseThrow(
+                                () ->
+                                        ApiException.invalid(
+                                                "QA_UNAVAILABLE", "Q&A is not available."));
+        return Map.of(
+                "question",
+                question.strip(),
+                "answer",
+                answer.answer() != null ? answer.answer() : "",
+                "blockId",
+                answer.blockId() != null ? answer.blockId() : "",
+                "quote",
+                answer.quote() != null ? answer.quote() : "",
+                "abstain",
+                answer.abstain(),
+                "abstainReason",
+                answer.abstainReason() != null ? answer.abstainReason() : "");
     }
 }

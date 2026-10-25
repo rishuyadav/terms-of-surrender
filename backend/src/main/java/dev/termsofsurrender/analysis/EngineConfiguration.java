@@ -14,4 +14,10 @@ public class EngineConfiguration {
                 ? new ModelAnalysisEngine(properties.model(), mapper, validator)
                 : new PreviewAnalysisEngine(validator);
     }
+
+    @Bean
+    ContractQa contractQa(
+            AppProperties properties, ObjectMapper mapper, EvidenceValidator validator) {
+        return new ContractQa(properties.model(), mapper, validator);
+    }
 }

@@ -6,6 +6,7 @@ import { useRouter } from "next/navigation";
 import {
   ArrowLeft,
   ArrowRight,
+  ArrowUpRight,
   BookOpen,
   Check,
   CircleAlert,
@@ -18,8 +19,10 @@ import {
   ListFilter,
   LoaderCircle,
   LockKeyhole,
+  MessageCircleQuestion,
   RotateCcw,
   Search,
+  Send,
   ShieldCheck,
   Trash2,
   X,
@@ -27,7 +30,8 @@ import {
 import { Brand } from "./brand";
 import { FindingCard } from "./finding-card";
 import { useAnalysis } from "@/hooks/use-analysis";
-import { deleteAnalysis } from "@/lib/api";
+import { deleteAnalysis, askContract } from "@/lib/api";
+import type { QaAnswer } from "@/lib/api";
 import { contextLabel, sourceSegments } from "@/lib/source";
 import type { Finding, Impact } from "@/lib/types";
 
@@ -42,6 +46,10 @@ export function ReportViewer({ id }: { id: string }) {
   const [actionError, setActionError] = useState<string | null>(null);
   const [allCopied, setAllCopied] = useState(false);
   const [sourceSearch, setSourceSearch] = useState("");
+  const [qaQuestion, setQaQuestion] = useState("");
+  const [qaAsking, setQaAsking] = useState(false);
+  const [qaAnswers, setQaAnswers] = useState<QaAnswer[]>([]);
+  const [qaError, setQaError] = useState<string | null>(null);
   const findings = view?.report?.findings ?? [];
 
   // Blocks that match the source search query (case-insensitive substring).
@@ -102,6 +110,22 @@ export function ReportViewer({ id }: { id: string }) {
       setAllCopied(true);
       setTimeout(() => setAllCopied(false), 2000);
     } catch { /* ignore */ }
+  }
+
+  async function askQuestion(e: React.FormEvent) {
+    e.preventDefault();
+    if (!qaQuestion.trim() || qaAsking || !view) return;
+    setQaAsking(true);
+    setQaError(null);
+    try {
+      const answer = await askContract(view.id, qaQuestion.trim());
+      setQaAnswers((prev) => [answer, ...prev]);
+      setQaQuestion("");
+    } catch (cause) {
+      setQaError(cause instanceof Error ? cause.message : "Could not reach the Q&A service.");
+    } finally {
+      setQaAsking(false);
+    }
   }
 
   function esc(raw: string): string {
@@ -464,6 +488,98 @@ ${reportFindings.map((f, i) => `
                     <p className="checklist-note">
                       Items derived from findings. Verify facts before acting.
                     </p>
+                  </section>
+                )}
+
+                {/* Ask the Contract — only when model-assisted and completed */}
+                {view.status === "COMPLETED" && view.report?.mode === "MODEL_ASSISTED" && (
+                  <section className="qa-section" aria-labelledby="qa-title">
+                    <div className="qa-header">
+                      <MessageCircleQuestion size={16} />
+                      <span className="label-caption" id="qa-title">ASK ABOUT THIS AGREEMENT</span>
+                    </div>
+                    <p className="qa-intro">
+                      Ask a specific question. Answers come only from the contract text above — not general knowledge.
+                    </p>
+                    <form className="qa-form" onSubmit={askQuestion}>
+                      <input
+                        type="text"
+                        className="qa-input"
+                        placeholder="e.g. What happens if I cancel next month?"
+                        value={qaQuestion}
+                        maxLength={300}
+                        onChange={(e) => setQaQuestion(e.target.value)}
+                        disabled={qaAsking}
+                        aria-label="Ask a question about this contract"
+                      />
+                      <button
+                        type="submit"
+                        className="primary-button qa-submit"
+                        disabled={!qaQuestion.trim() || qaAsking}
+                      >
+                        {qaAsking ? <LoaderCircle size={15} className="spin" /> : <Send size={15} />}
+                        {qaAsking ? "Asking…" : "Ask"}
+                      </button>
+                    </form>
+                    {qaError && <p className="qa-error" role="alert">{qaError}</p>}
+                    {/* Suggested starter questions derived from the report */}
+                    {qaAnswers.length === 0 && findings.length > 0 && (
+                      <div className="qa-suggestions">
+                        <span className="qa-suggestions-label">Try asking:</span>
+                        {findings.slice(0, 3).map((f) => (
+                          <button
+                            key={f.id}
+                            type="button"
+                            className="qa-suggestion-btn"
+                            onClick={() => setQaQuestion(f.suggestedQuestion)}
+                          >
+                            {f.suggestedQuestion}
+                          </button>
+                        ))}
+                      </div>
+                    )}
+                    {qaAnswers.length > 0 && (
+                      <div className="qa-answers">
+                        {qaAnswers.map((qa, i) => (
+                          <div key={i} className={`qa-answer ${qa.abstain ? "abstain" : ""}`}>
+                            <p className="qa-q">{qa.question}</p>
+                            {qa.abstain ? (
+                              <p className="qa-abstain-text">
+                                <Info size={13} /> {qa.abstainReason || "No relevant text found in the document."}
+                              </p>
+                            ) : (
+                              <>
+                                <p className="qa-a">{qa.answer}</p>
+                                {qa.quote && (
+                                  <blockquote className="qa-citation">
+                                    <button
+                                      type="button"
+                                      className="qa-citation-link"
+                                      onClick={() => {
+                                        if (qa.blockId) {
+                                          if (matchingBlockIds && !matchingBlockIds.has(qa.blockId)) {
+                                            setSourceSearch("");
+                                          }
+                                          setMobilePane("source");
+                                          requestAnimationFrame(() =>
+                                            document
+                                              .getElementById(`block-${qa.blockId}`)
+                                              ?.scrollIntoView({ behavior: "smooth", block: "center" }),
+                                          );
+                                        }
+                                      }}
+                                    >
+                                      <ArrowUpRight size={11} /> Show in document
+                                    </button>
+                                    &ldquo;{qa.quote}&rdquo;
+                                  </blockquote>
+                                )}
+                              </>
+                            )}
+                          </div>
+                        ))}
+                      </div>
+                    )}
                   </section>
                 )}
               </>

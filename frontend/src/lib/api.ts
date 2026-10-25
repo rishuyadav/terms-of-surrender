@@ -73,3 +73,18 @@ export interface FetchResult {
 
 export const fetchPageText = (url: string) =>
   request<FetchResult>(`/api/fetch?url=${encodeURIComponent(url)}`);
+
+export interface QaAnswer {
+  question: string;
+  answer: string;
+  blockId: string;
+  quote: string;
+  abstain: boolean;
+  abstainReason: string;
+}
+
+export const askContract = (id: string, question: string) =>
+  request<QaAnswer>(
+    `/api/analyses/${encodeURIComponent(id)}/ask?question=${encodeURIComponent(question)}`,
+    { method: "POST" },
+  );

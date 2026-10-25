@@ -10,6 +10,7 @@ import java.net.http.HttpRequest;
 import java.net.http.HttpResponse;
 import java.time.Duration;
 import java.util.ArrayList;
+import java.util.HashMap;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
@@ -18,6 +19,8 @@ import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.TimeoutException;
+import java.util.regex.Matcher;
+import java.util.regex.Pattern;
 import java.util.stream.Collectors;
 
 /** OpenAI-compatible adapter. Provider failures never silently downgrade to preview mode. */
@@ -31,6 +34,9 @@ public class ModelAnalysisEngine implements AnalysisEngine, AutoCloseable {
             Do not invent legal rights, opt-out procedures, dates, amounts, or missing text.
             The jurisdiction is context only: there is NO reviewed legal corpus. Make NO claims about law.
             Do NOT say 'under [jurisdiction] law, you have the right to...' or similar. Say instead: 'This clause says...' or 'You may want to ask whether...'
+            If definedTerms are provided, use them when explaining clauses that reference those terms — this helps resolve what "the Service", "Confidential Information", or similar phrases actually mean in this agreement.
+            When a clause appears to be modified by an exception, a definition, or another section, say so explicitly rather than treating the clause in isolation. Use relatedBlockIds to point to the modifying block.
+            If a clause references a Schedule, Exhibit, Annex, or Appendix not supplied in the text, flag that the referenced terms are missing and may affect your explanation.
             Qualify your interpretation when another section or missing facts could change it.
             Use FAVORABLE only for clauses that explicitly grant a right, protection, or option to the reader — for example, an explicit opt-out right, a refund provision, a notice period before changes take effect, or a portfolio retention right. Do NOT use FAVORABLE for clauses that mention a right only to limit or waive it (e.g. 'non-refundable', 'you waive the right to...'). When in doubt, use REVIEW.
             Return JSON: {"summary": "2-4 sentence plain-English overview of what this agreement covers, the main obligations on each side, and any notable gaps or missing attachments.", "findings": [{"blockId": "...", "quote": "exact contiguous source text",
@@ -96,6 +102,66 @@ public class ModelAnalysisEngine implements AnalysisEngine, AutoCloseable {
         return "Reviewing terms with AI…";
     }
 
+    // Patterns for defined terms: "X" means Y / "X" shall mean Y / X: as used herein means Y
+    private static final Pattern DEFINED_TERM_PATTERN =
+            Pattern.compile(
+                    "\"([A-Z][A-Za-z ]{1,40})\"\\s+(?:means|shall mean|is defined as)",
+                    Pattern.CASE_INSENSITIVE);
+
+    // Patterns for referenced-but-absent documents/schedules
+    private static final Pattern REFERENCE_PATTERN =
+            Pattern.compile(
+                    "(?:Schedule|Exhibit|Annex|Appendix|Attachment)\\s+[A-Z0-9]+|"
+                            + "(?:referred to|set out|set forth|attached|incorporated)\\s+(?:herein|hereto|as)?\\s+"
+                            + "(?:in|as)?\\s*(?:the\\s+)?(?:Schedule|Exhibit|Annex|Appendix)",
+                    Pattern.CASE_INSENSITIVE);
+
+    /** Extract defined terms from the full document text (max 20 terms, summary only). */
+    private Map<String, String> extractDefinitions(List<Document.Block> blocks) {
+        Map<String, String> definitions = new HashMap<>();
+        for (Document.Block block : blocks) {
+            if (definitions.size() >= 20) {
+                break;
+            }
+            Matcher m = DEFINED_TERM_PATTERN.matcher(block.text());
+            while (m.find() && definitions.size() < 20) {
+                String term = m.group(1).strip();
+                // Grab the rest of the sentence as the definition (up to 120 chars).
+                int defStart = m.end();
+                String rest = block.text().substring(defStart).strip();
+                int end = rest.indexOf('.');
+                if (end < 0 || end > 120) {
+                    end = Math.min(120, rest.length());
+                }
+                if (end > 5) {
+                    definitions.put(term, rest.substring(0, end).strip());
+                }
+            }
+        }
+        return definitions;
+    }
+
+    /** Detect references to external documents not supplied in the text. */
+    private List<String> detectMissingReferences(List<Document.Block> blocks) {
+        Set<String> refs = new HashSet<>();
+        for (Document.Block block : blocks) {
+            Matcher m = REFERENCE_PATTERN.matcher(block.text());
+            while (m.find()) {
+                String ref = m.group(0).replaceAll("\\s+", " ").strip();
+                if (ref.length() <= 60) {
+                    refs.add(ref);
+                }
+                if (refs.size() >= 5) {
+                    break;
+                }
+            }
+            if (refs.size() >= 5) {
+                break;
+            }
+        }
+        return new ArrayList<>(refs);
+    }
+
     @Override
     public Analysis.Report analyze(Analysis.Input input) {
         List<Analysis.Finding> findings = new ArrayList<>();
@@ -104,13 +170,18 @@ public class ModelAnalysisEngine implements AnalysisEngine, AutoCloseable {
         String summary = null;
         List<String> rawPriorities = new ArrayList<>();
         List<Analysis.ChecklistItem> checklist = new ArrayList<>();
+
+        // Pre-scan: extract defined terms and detect missing referenced documents.
+        Map<String, String> definitions = extractDefinitions(input.document().blocks());
+        List<String> missingRefs = detectMissingReferences(input.document().blocks());
+
         List<List<Document.Block>> chunks = chunks(input.document().blocks());
         if (chunks.size() > 12) {
             throw new IllegalStateException("Document exceeds model request budget");
         }
         for (int chunkIndex = 0; chunkIndex < chunks.size(); chunkIndex++) {
             List<Document.Block> chunk = chunks.get(chunkIndex);
-            JsonNode response = request(input.context(), chunk);
+            JsonNode response = request(input.context(), chunk, definitions);
             JsonNode proposals = response.path("findings");
             if (!proposals.isArray() || proposals.size() > 8) {
                 throw new IllegalStateException("Invalid model response shape");
@@ -210,6 +281,12 @@ public class ModelAnalysisEngine implements AnalysisEngine, AutoCloseable {
                                 "AI-generated explanations can be wrong. Exact quote validation verifies source location, not the correctness of an interpretation.",
                                 "Sections were analyzed in bounded groups. Cross-section definitions, exceptions, and conflicts may be missed; this is not a complete legal review.",
                                 "Only supplied readable text was analyzed. External documents and missing attachments are outside the review."));
+        if (!missingRefs.isEmpty()) {
+            limitations.add(
+                    "The agreement references documents not included in this analysis: "
+                            + String.join("; ", missingRefs)
+                            + ". Their terms may materially affect these findings.");
+        }
         limitations.addAll(JurisdictionContext.limitations(input.context()));
         if (rejected > 0) {
             limitations.add(
@@ -228,11 +305,23 @@ public class ModelAnalysisEngine implements AnalysisEngine, AutoCloseable {
                 List.copyOf(checklist));
     }
 
-    private JsonNode request(Analysis.Context context, List<Document.Block> blocks) {
+    private JsonNode request(
+            Analysis.Context context,
+            List<Document.Block> blocks,
+            Map<String, String> definitions) {
         CompletableFuture<HttpResponse<byte[]>> pending = null;
         try {
             String systemPrompt =
                     JurisdictionContext.systemFraming(context) + "\n" + CORE_INSTRUCTIONS;
+            Map<String, Object> userPayload = new HashMap<>();
+            userPayload.put("context", context);
+            userPayload.put("contextLabel", JurisdictionContext.label(context));
+            userPayload.put("blocks", blocks);
+            if (!definitions.isEmpty()) {
+                // Pass defined terms so the model can resolve references like "the Service" or
+                // "Confidential Information" without guessing their meaning.
+                userPayload.put("definedTerms", definitions);
+            }
             String body =
                     mapper.writeValueAsString(
                             Map.of(
@@ -249,13 +338,7 @@ public class ModelAnalysisEngine implements AnalysisEngine, AutoCloseable {
                                                     "role",
                                                     "user",
                                                     "content",
-                                                    mapper.writeValueAsString(
-                                                            Map.of(
-                                                                    "context", context,
-                                                                    "contextLabel",
-                                                                            JurisdictionContext
-                                                                                    .label(context),
-                                                                    "blocks", blocks))))));
+                                                    mapper.writeValueAsString(userPayload)))));
             HttpRequest request =
                     HttpRequest.newBuilder(
                                     URI.create(
