@@ -1,0 +1,46 @@
+spring:
+  application:
+    name: terms-of-surrender
+  datasource:
+    url: ${DATABASE_URL:jdbc:h2:file:./.data/contracts;MODE=PostgreSQL;DATABASE_TO_LOWER=TRUE}
+    username: ${DATABASE_USER:sa}
+    password: ${DATABASE_PASSWORD:}
+  servlet:
+    multipart:
+      max-file-size: 10MB
+      max-request-size: 11MB
+  mvc:
+    async:
+      request-timeout: 120000
+  task:
+    scheduling:
+      pool:
+        size: 3
+server:
+  port: ${PORT:8080}
+  error:
+    include-message: never
+    include-stacktrace: never
+  tomcat:
+    max-http-form-post-size: 11MB
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health
+  endpoint:
+    health:
+      show-details: never
+app:
+  allowed-origins: ${ALLOWED_ORIGINS:http://localhost:3000}
+  secure-cookies: ${SECURE_COOKIES:false}
+  retention-hours: ${RETENTION_HOURS:24}
+  max-active-jobs-per-session: 2
+  max-jobs-per-session-per-hour: 10
+  max-pending-jobs: 50
+  worker-enabled: ${WORKER_ENABLED:true}
+  model:
+    enabled: ${MODEL_ENABLED:false}
+    base-url: ${MODEL_BASE_URL:https://api.openai.com/v1}
+    api-key: ${MODEL_API_KEY:}
+    name: ${MODEL_NAME:}
