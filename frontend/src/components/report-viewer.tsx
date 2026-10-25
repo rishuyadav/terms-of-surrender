@@ -200,12 +200,16 @@ ${reportFindings.map((f, i) => `
             <div className="report-title-row">
               <div>
                 <p className="eyebrow">THE AGREEMENT, UNPACKED</p>
-                <h1>
-                  Your fine-print field guide<span>.</span>
-                </h1>
+                <h1>{view.document.title}<span>.</span></h1>
                 <p className="report-context">
                   {contextLabel(view.context.jurisdiction, view.context.category)}
                   {view.context.region ? ` · ${view.context.region}` : ""}
+                  {" · "}
+                  {view.document.sourceType === "PDF"
+                    ? `PDF · ${view.document.pageCount} ${view.document.pageCount === 1 ? "page" : "pages"}`
+                    : view.document.sourceType === "DOCX"
+                      ? "Word document"
+                      : "Pasted text"}
                 </p>
               </div>
               <div className="report-tools">

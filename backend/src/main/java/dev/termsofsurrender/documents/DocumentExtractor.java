@@ -25,42 +25,68 @@ public class DocumentExtractor {
         }
         if (hasText) {
             checkLength(text.length());
-            return build("Pasted agreement", "TEXT", List.of(text), List.of());
+            return build(titleFromText(text), "TEXT", List.of(text), List.of());
         }
         if (file.getSize() > 10 * 1024 * 1024) {
             throw ApiException.invalid("UPLOAD_TOO_LARGE", "Upload a document smaller than 10 MB.");
         }
+        String filename = file.getOriginalFilename();
+        String title = filename != null && !filename.isBlank()
+                ? titleFromFilename(filename) : "Uploaded agreement";
+        boolean isDocx = filename != null
+                && filename.toLowerCase(java.util.Locale.ROOT).endsWith(".docx");
         try {
-            return extractFile(
-                    file.getOriginalFilename() != null
-                                    && file.getOriginalFilename()
-                                            .toLowerCase(java.util.Locale.ROOT)
-                                            .endsWith(".docx")
-                            ? "DOCX"
-                            : "PDF",
-                    file.getBytes());
+            return extractFile(isDocx ? "DOCX" : "PDF", title, file.getBytes());
         } catch (IOException exception) {
             throw ApiException.invalid("UNREADABLE_FILE", "The upload could not be read.");
         }
     }
 
+    /** Package-private for tests that don't have a filename. */
     Document extractFile(String format, byte[] bytes) {
+        return extractFile(format, "Uploaded agreement", bytes);
+    }
+
+    Document extractFile(String format, String title, byte[] bytes) {
         if (bytes.length > 10 * 1024 * 1024) {
             throw ApiException.invalid("UPLOAD_TOO_LARGE", "Upload a document smaller than 10 MB.");
         }
         if (format.equals("DOCX")) {
             return build(
-                    "Uploaded agreement",
+                    title,
                     "DOCX",
                     List.of(new DocxTextExtractor().extract(bytes)),
                     List.of(
                             "DOCX import reads body paragraphs and tables, not the complete Word layout. Headers, footers, footnotes, comments, images, text boxes, automatic numbering, and embedded content may be missing. Verify against the original before relying on this report.",
                             "DOCX has no reliable page mapping. Source references identify extracted text, not Word pages. Field results may be stale; hidden text may be included."));
         }
-        return pdf(bytes);
+        return pdf(title, bytes);
     }
 
-    private Document pdf(byte[] bytes) {
+    /** Derive a display title from the first non-empty line of pasted text (max 80 chars). */
+    static String titleFromText(String text) {
+        for (String line : text.split("\\r?\\n", -1)) {
+            String trimmed = line.strip();
+            if (!trimmed.isEmpty()) {
+                return trimmed.length() > 80 ? trimmed.substring(0, 80).stripTrailing() + "…" : trimmed;
+            }
+        }
+        return "Pasted agreement";
+    }
+
+    /** Derive a display title from an uploaded filename, stripping extension. */
+    static String titleFromFilename(String filename) {
+        int dot = filename.lastIndexOf('.');
+        String base = dot > 0 ? filename.substring(0, dot) : filename;
+        // Replace underscores and hyphens with spaces, trim, cap at 80 chars.
+        String cleaned = base.replace('_', ' ').replace('-', ' ').strip();
+        if (cleaned.isEmpty()) {
+            return "Uploaded agreement";
+        }
+        return cleaned.length() > 80 ? cleaned.substring(0, 80).stripTrailing() + "…" : cleaned;
+    }
+
+    private Document pdf(String title, byte[] bytes) {
         try {
             if (bytes.length < 5
                     || bytes[0] != '%'
@@ -100,7 +126,7 @@ public class DocumentExtractor {
                                         + " has little readable text. Scanned content may be missing.");
                     }
                 }
-                return build("Uploaded agreement", "PDF", pages, warnings);
+                return build(title, "PDF", pages, warnings);
             }
         } catch (IOException exception) {
             throw ApiException.invalid(
