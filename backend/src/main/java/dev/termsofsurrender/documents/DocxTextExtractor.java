@@ -135,7 +135,8 @@ final class DocxTextExtractor {
                         }
                     }
                     if (word && REVISIONS.contains(name)) {
-                        throw invalid(
+                        throw ApiException.invalid(
+                                "DOCX_TRACKED_CHANGES",
                                 "This DOCX contains tracked changes. Accept or reject changes in Word, then upload again.");
                     }
                     if (word && name.equals("body") && depth == 2) {

@@ -4,6 +4,7 @@ import dev.termsofsurrender.AppProperties;
 import dev.termsofsurrender.analysis.Analysis;
 import dev.termsofsurrender.documents.Document;
 import dev.termsofsurrender.documents.DocumentExtractor;
+import dev.termsofsurrender.documents.DocumentIngestion;
 import dev.termsofsurrender.jobs.AnalysisRepository;
 import dev.termsofsurrender.privacy.Sessions;
 import jakarta.servlet.http.HttpServletRequest;
@@ -28,14 +29,14 @@ import org.springframework.web.servlet.mvc.method.annotation.SseEmitter;
 public class AnalysisController {
     private final Sessions sessions;
     private final AppProperties properties;
-    private final DocumentExtractor extractor;
+    private final DocumentIngestion extractor;
     private final AnalysisRepository repository;
     private final AnalysisStreams streams;
 
     public AnalysisController(
             Sessions sessions,
             AppProperties properties,
-            DocumentExtractor extractor,
+            DocumentIngestion extractor,
             AnalysisRepository repository,
             AnalysisStreams streams) {
         this.sessions = sessions;

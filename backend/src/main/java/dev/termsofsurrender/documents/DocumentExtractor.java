@@ -8,10 +8,9 @@ import java.util.List;
 import org.apache.pdfbox.Loader;
 import org.apache.pdfbox.pdmodel.PDDocument;
 import org.apache.pdfbox.text.PDFTextStripper;
-import org.springframework.stereotype.Component;
 import org.springframework.web.multipart.MultipartFile;
 
-@Component
+/** Pure extraction engine. Production file parsing is invoked only by ParserWorker. */
 public class DocumentExtractor {
     public static final int MAX_CHARACTERS = 80_000;
     private static final int MAX_PAGES = 40;
@@ -31,28 +30,38 @@ public class DocumentExtractor {
         if (file.getSize() > 10 * 1024 * 1024) {
             throw ApiException.invalid("UPLOAD_TOO_LARGE", "Upload a document smaller than 10 MB.");
         }
-        if (file.getOriginalFilename() != null
-                && file.getOriginalFilename()
-                        .toLowerCase(java.util.Locale.ROOT)
-                        .endsWith(".docx")) {
-            try {
-                return build(
-                        "Uploaded agreement",
-                        "DOCX",
-                        List.of(new DocxTextExtractor().extract(file.getBytes())),
-                        List.of(
-                                "DOCX import reads body paragraphs and tables, not the complete Word layout. Headers, footers, footnotes, comments, images, text boxes, automatic numbering, and embedded content may be missing. Verify against the original before relying on this report.",
-                                "DOCX has no reliable page mapping. Source references identify extracted text, not Word pages. Field results may be stale; hidden text may be included."));
-            } catch (IOException exception) {
-                throw ApiException.invalid("UNREADABLE_DOCX", "The DOCX upload could not be read.");
-            }
+        try {
+            return extractFile(
+                    file.getOriginalFilename() != null
+                                    && file.getOriginalFilename()
+                                            .toLowerCase(java.util.Locale.ROOT)
+                                            .endsWith(".docx")
+                            ? "DOCX"
+                            : "PDF",
+                    file.getBytes());
+        } catch (IOException exception) {
+            throw ApiException.invalid("UNREADABLE_FILE", "The upload could not be read.");
         }
-        return pdf(file);
     }
 
-    private Document pdf(MultipartFile file) {
+    Document extractFile(String format, byte[] bytes) {
+        if (bytes.length > 10 * 1024 * 1024) {
+            throw ApiException.invalid("UPLOAD_TOO_LARGE", "Upload a document smaller than 10 MB.");
+        }
+        if (format.equals("DOCX")) {
+            return build(
+                    "Uploaded agreement",
+                    "DOCX",
+                    List.of(new DocxTextExtractor().extract(bytes)),
+                    List.of(
+                            "DOCX import reads body paragraphs and tables, not the complete Word layout. Headers, footers, footnotes, comments, images, text boxes, automatic numbering, and embedded content may be missing. Verify against the original before relying on this report.",
+                            "DOCX has no reliable page mapping. Source references identify extracted text, not Word pages. Field results may be stale; hidden text may be included."));
+        }
+        return pdf(bytes);
+    }
+
+    private Document pdf(byte[] bytes) {
         try {
-            byte[] bytes = file.getBytes();
             if (bytes.length < 5
                     || bytes[0] != '%'
                     || bytes[1] != 'P'
