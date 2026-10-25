@@ -65,27 +65,53 @@ You retain ownership of your notes. You grant us a limited license to store and 
   {
     id: "freelance",
     label: "The freelance contract",
-    description: "Freelance · Change jurisdiction as needed",
-    context: { jurisdiction: "UNSPECIFIED", category: "FREELANCE", region: "" },
+    description: "US · Freelance agreement",
+    context: { jurisdiction: "US", category: "FREELANCE", region: "" },
     text: `NORTHSTAR STUDIO — SAMPLE FREELANCE SERVICES AGREEMENT
-Fictional demonstration document. No governing law is specified.
+Fictional demonstration document. Not legal advice.
 
 1. Services
-The freelancer will produce a five-page website using the written brief attached to the agreement. That brief is not included in this sample. Revisions are included until the client is satisfied. Work outside the original brief requires a written change request and agreed pricing.
+The freelancer will produce a five-page website using the written brief attached to the agreement. That brief is not included in this sample. Revisions are included until the client is satisfied. Work outside the original brief requires a written change request and agreed pricing before the freelancer begins additional work.
 
 2. Payment
-The project fee is 3,000 in a currency to be confirmed by the parties. Payment is due net 60 from the date of the final invoice, which may be issued upon final acceptance by the client. The agreement does not set a deadline for the client's acceptance decision.
+The project fee is USD 3,000. Payment is due net 60 from the date of the final invoice, which may be issued upon final acceptance by the client. The agreement does not set a deadline for the client's acceptance decision. Late payments accrue interest at 1.5% per month.
 
 3. Intellectual property
-All intellectual property rights in project deliverables transfer to the client upon creation. Pre-existing tools and materials remain the freelancer's property and are licensed to the client only as needed to use the deliverables.
+All intellectual property rights in project deliverables transfer to the client upon creation and full payment. Pre-existing tools and materials remain the freelancer's property and are licensed to the client only as needed to use the deliverables. The freelancer may display the work in their portfolio unless the client gives written objection within thirty days of project completion.
 
 4. Indemnity
 The freelancer shall indemnify the client against third-party claims arising from the freelancer's infringement of intellectual property rights. This obligation has no stated financial cap and does not apply to materials supplied by the client.
 
 5. Termination
-The client may terminate for convenience on seven days' notice. The client will pay for accepted deliverables completed before termination; treatment of unaccepted work is not specified.
+The client may terminate for convenience on seven days' notice. The client will pay for accepted deliverables completed before termination; work in progress that has not yet been accepted will not be compensated unless the parties agree otherwise in writing.
 
-6. Other clients
-During the project and for six months afterwards, the freelancer will not perform competing design services for the client's direct competitors. The parties have not defined direct competitors.`,
+6. Restrictions
+During the project and for six months afterwards, the freelancer will not perform competing design services for the client's direct competitors in the same market segment. The parties have not defined direct competitors or market segment in this agreement.`,
+  },
+  {
+    id: "india-freelance",
+    label: "The India services contract",
+    description: "India · Freelance agreement",
+    context: { jurisdiction: "INDIA", category: "FREELANCE", region: "" },
+    text: `MERIDIAN TECH SOLUTIONS — SAMPLE SERVICE AGREEMENT
+Fictional demonstration document. Not legal advice.
+
+1. Scope of work
+The service provider will design and deliver a mobile application interface as described in the statement of work attached to this agreement. That document is not included in this sample. Work outside the agreed scope requires a written change order signed by both parties before work begins.
+
+2. Fees and payment
+The total fee is INR 1,50,000 exclusive of applicable GST. The client will pay fifty percent on signing and the balance within net 30 days of final delivery. The service provider may raise an invoice upon delivery; the client's acceptance is deemed granted after seven days of silence. Late payments will attract interest at the rate of twelve percent per annum from the due date.
+
+3. Intellectual property
+All rights in deliverables vest in the client upon receipt of full payment under the Copyright Act 1957. The service provider retains ownership of any pre-existing tools, libraries, and frameworks; a royalty-free license to use them as part of the deliverables is granted for the duration of the client's use of the application.
+
+4. Confidentiality
+The service provider shall treat all client materials, business data, and design specifications as confidential and may not disclose them to third parties. This obligation continues for two years after the agreement ends.
+
+5. Dispute resolution
+Any disputes arising out of or in connection with this agreement shall be referred to and finally resolved by arbitration in accordance with the Arbitration and Conciliation Act 1996. The seat of arbitration shall be Bengaluru. The language of the proceedings shall be English.
+
+6. Termination
+Either party may terminate this agreement on fourteen days' written notice. On termination, the client will pay for work completed and accepted up to the termination date. Pre-paid amounts for undelivered work will be refunded within thirty days.`,
   },
 ];

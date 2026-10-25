@@ -386,7 +386,7 @@ export function Intake() {
                 }}
               >
                 <span className="sample-card-icon">
-                  {sample.id === "gym" ? "01" : sample.id === "app" ? "02" : "03"}
+                  {String(samples.indexOf(sample) + 1).padStart(2, "0")}
                 </span>
                 <span>
                   <strong>{sample.label}</strong>

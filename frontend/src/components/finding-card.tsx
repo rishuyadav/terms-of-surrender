@@ -73,7 +73,9 @@ export function FindingCard({
             <span className="muted">
               {sourceType === "PDF"
                 ? `· page ${finding.evidence.blockId.split("-")[0].slice(1)}`
-                : "· extracted text"}
+                : sourceType === "DOCX"
+                  ? "· Word document"
+                  : "· pasted text"}
             </span>
           </span>
           <ChevronDown size={15} />
