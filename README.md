@@ -1,51 +1,127 @@
-# Terms of Surrender
+<div align="center">
 
-**Paste a contract. Get findings you can actually verify.**
+<img src="https://img.shields.io/badge/early%20preview-open-6d293b?style=flat-square&labelColor=1a1916" alt="Early Preview" />
+<img src="https://img.shields.io/badge/no%20account%20required-✓-416047?style=flat-square&labelColor=1a1916" alt="No account required" />
+<img src="https://img.shields.io/badge/self--hostable-✓-8b641c?style=flat-square&labelColor=1a1916" alt="Self-hostable" />
+<img src="https://img.shields.io/github/license/rishuyadav/terms-of-surrender?style=flat-square&labelColor=1a1916&color=555" alt="License" />
 
-Terms of Surrender is an evidence-first contract interpreter. It reads the agreements you're about to sign — subscriptions, gym memberships, app terms, freelance contracts — and tells you what the important clauses actually mean, in plain English, with the exact source text so you can check every claim.
+<br /><br />
 
-It is not a law firm and not an autonomous AI lawyer. It tells you what the contract *says*, surfaces the questions worth asking, and lets you read the evidence yourself.
+```
+┌─────────────────────────────────────────────────────┐
+│                                                     │
+│   terms of surrender.                               │
+│                                                     │
+│   Paste a contract. Get plain-English findings      │
+│   with the exact source text behind every claim.   │
+│                                                     │
+└─────────────────────────────────────────────────────┘
+```
+
+**You shouldn't need a law degree to know what you're agreeing to.**
+
+[What it does](#what-it-does) · [Demo](#demo) · [Run locally](#run-locally) · [Architecture](#architecture) · [Self-host](#docker--self-host)
+
+</div>
+
+---
+
+## The problem
+
+Every week you click *"I agree"* on contracts you don't read — gym memberships, app subscriptions, freelance agreements. Buried inside is an auto-renewal trap, a one-sided arbitration clause, or a clause that hands your IP to someone else.
+
+**Terms of Surrender makes the fine print legible.** Paste the text, get a report in seconds. Every finding links back to the exact paragraph it came from. No citation, no finding.
+
+---
+
+## Demo
+
+> No account, no login. Paste and go — or use one of the four built-in sample agreements.
+
+```
+Automatic-renewal trap found in: EVERGREEN FITNESS MEMBERSHIP AGREEMENT
+─────────────────────────────────────────────────────────────────────────
+
+  ⚠ HIGH   Auto-renewal · Cancellation window
+  ───────────────────────────────────────────────────────────
+  The membership renews automatically for another twelve-month
+  term unless written cancellation is received at least thirty
+  days before the current term ends.
+
+  Evidence ▾
+  ┌──────────────────────────────────────────────────────────┐
+  │ "The membership renews automatically for another         │
+  │  twelve-month term unless the club receives written      │
+  │  cancellation notice at least thirty days before the     │
+  │  current term ends."                    — §2, page 1     │
+  └──────────────────────────────────────────────────────────┘
+
+  Suggested question for the other party:
+  "If I miss the 30-day window by even one day, am I locked
+   in for another full year?"                        📋 Copy
+```
+
+```
+  ✓ FAVORABLE   Refund on permanent closure
+  ───────────────────────────────────────────────────────────
+  If the club closes permanently, prepaid amounts for unused
+  membership months will be refunded.
+
+  ⚠ REVIEW   Arbitration clause — opt-out available
+  ───────────────────────────────────────────────────────────
+  Disputes resolved by binding arbitration, but you may
+  opt out within 30 days of signing by written notice.
+  The opt-out address is only in the welcome pack.
+```
 
 ---
 
 ## What it does
 
-1. **You paste text, upload a PDF/DOCX, or drop a public URL.** Terms of Surrender extracts the readable text.
+| Step | What happens |
+|------|-------------|
+| **1. Paste, upload, or drop a URL** | Text, native PDF, DOCX, or a public URL — Terms of Surrender extracts the readable content |
+| **2. Findings are surfaced** | Auto-renewal, one-sided arbitration, broad IP assignment, unilateral change rights, liability caps, and more |
+| **3. Every finding has a source** | The exact paragraph is highlighted in the original document — click any finding to jump to it |
+| **4. Start here** | 2–3 highest-priority items to read first, so you know where to focus |
+| **5. Before you agree checklist** | Concrete actions: what to **ASK** the other party, what to **VERIFY**, what to **CONSIDER** |
+| **6. Ask the contract** | Type a specific question — *"What happens if I cancel after 30 days?"* — and get a grounded answer that cites the exact clause, or an explicit "not found" |
+| **7. Export** | Download your report as JSON or offline-readable HTML |
 
-2. **It finds consequential clauses.** Automatic-renewal traps, one-sided arbitration, broad IP assignments, unilateral change rights, and more — matched against the actual words in your document.
+---
 
-3. **Every finding has a source.** Click any finding to see the exact paragraph it came from, highlighted in the document. No citation, no finding.
+## Finding severity
 
-4. **A "Start here" section** highlights the 2-3 most important things to read first, so you know where to focus.
+```
+  ⚠ HIGH      — Potentially significant consequence
+                e.g. automatic renewal, broad IP transfer,
+                unilateral termination without cause
 
-5. **A "Before you agree" checklist** gives you concrete actions: what to ask the other party (ASK), what facts to check (VERIFY), and what options you have (CONSIDER).
+  ~ REVIEW    — Worth reading carefully; context matters
+                e.g. arbitration clause, liability cap,
+                undefined attachment referenced
 
-6. **You can ask questions.** With an AI provider configured, type a specific question ("What happens if I cancel after 30 days?") and get a grounded answer that cites the exact clause — or an explicit "not found" if the document doesn't say.
+  ✓ FAVORABLE — Explicitly grants you a right or protection
+                e.g. refund provision, price-change opt-out,
+                explicit cancellation window
+```
 
-7. **Download your report.** Export as JSON for your records or HTML to read offline.
+Every finding is validated: if the quoted evidence can't be found verbatim in the document, the finding is withheld.
 
 ---
 
 ## What it doesn't do
 
-- It doesn't give legal advice or tell you whether a clause is enforceable.
-- It doesn't know what law applies to your specific situation.
-- It can't read scanned PDFs or images (text-based PDFs and DOCX only).
-- It doesn't store your documents after 24 hours, and it has no account system.
+- ✗ Give legal advice or tell you whether a clause is enforceable
+- ✗ Read scanned PDFs or images (text-based only)
+- ✗ Retain your documents after 24 hours, or require an account
+- ✗ Know what law applies to your specific situation
 
 ---
 
-## Try it now
+## Run locally
 
-**No account. No login. Paste and go.**
-
-The home page includes four fictional sample agreements — a US gym membership, an Indian app's terms, a US freelance contract, and an Indian freelance agreement — so you can see a real report before uploading anything of your own.
-
----
-
-## Running locally
-
-**Requirements:** Java 21, Maven 3.9+, Node.js 20+ and npm.
+**Requirements:** Java 21, Maven 3.9+, Node.js 20+
 
 ```sh
 # Terminal 1 — backend
@@ -58,39 +134,33 @@ npm ci
 npm run dev
 ```
 
-Open **http://localhost:3000**. The frontend proxies `/api` to the backend at port 8081.
+Open **http://localhost:3000**.
 
-No AI key is required. Without one, you get a rule-based keyword preview — clearly labeled, useful for the most common clause patterns. Local data is stored in `backend/.data/` and expires automatically.
+No AI key is required. Without one you get a rule-based keyword analysis — clearly labeled, useful for the most common clause patterns. Local data lives in `backend/.data/` and expires automatically.
 
----
-
-## Enable AI-assisted analysis
-
-Export these variables before starting the backend:
+### Enable AI-assisted analysis
 
 ```sh
 export MODEL_ENABLED=true
-export MODEL_API_KEY='your-provider-key'
-export MODEL_NAME='your-provider-model-id'
-# OpenAI-compatible base URL (default: https://api.openai.com/v1)
-export MODEL_BASE_URL='https://api.openai.com/v1'
+export MODEL_API_KEY='your-key'
+export MODEL_NAME='gpt-4o'                          # or any OpenAI-compatible model
+export MODEL_BASE_URL='https://api.openai.com/v1'   # default
+
 cd backend && mvn spring-boot:run
 ```
 
-With a model configured, you get:
-- Full clause-by-clause AI analysis with explanations
-- A document summary and cross-section awareness
+With a model configured you also get:
+- Full clause-by-clause analysis with explanations
+- Document summary with cross-section awareness
 - Defined-term resolution (the model knows what "the Service" means)
-- The "Ask the Contract" Q&A panel
+- The **Ask the Contract** Q&A panel
 - Server-derived priorities and action checklist
 
-**Privacy note:** Extracted text is sent to your configured provider. Review that provider's data retention and regional processing terms before uploading private documents. The test suite never calls a paid provider.
+> **Privacy:** Extracted text is sent to your configured provider. Review that provider's data retention policy before uploading private documents.
 
 ---
 
-## Docker / containers
-
-With Docker Compose installed:
+## Docker / self-host
 
 ```sh
 cp .env.example .env
@@ -98,59 +168,124 @@ cp .env.example .env
 docker compose up --build
 ```
 
-The frontend is available at `http://localhost:3000`. PostgreSQL and the API communicate on the internal container network.
+Frontend at `http://localhost:3000`. PostgreSQL and the API talk on the internal container network.
 
-For a public deployment, set `SECURE_COOKIES=true`, configure exact `ALLOWED_ORIGINS`, use HTTPS, and add ingress-level rate limits. See [`docs/operations.md`](docs/operations.md).
+For a public deployment: set `SECURE_COOKIES=true`, configure exact `ALLOWED_ORIGINS`, use HTTPS, and add ingress-level rate limits. See [`docs/operations.md`](docs/operations.md).
 
 ---
 
-## Verifying the build
+## Architecture
+
+```
+┌─────────────────────┐     ┌──────────────────────────────────────────┐
+│                     │     │                                          │
+│   Browser           │────▶│   Next.js frontend                       │
+│   (React 19)        │◀────│   TypeScript · plain CSS · SSE streaming │
+│                     │     │                                          │
+└─────────────────────┘     └───────────────┬──────────────────────────┘
+                                            │ /api proxy
+                                            ▼
+                             ┌──────────────────────────┐
+                             │                          │
+                             │   Spring Boot 3          │
+                             │   Java 21                │
+                             │                          │
+                             │  ┌─────────┐ ┌────────┐ │
+                             │  │ Ingest  │ │  Jobs  │ │
+                             │  │ & parse │ │ engine │ │
+                             │  └────┬────┘ └───┬────┘ │
+                             │       │           │      │
+                             │  ┌────▼───────────▼────┐ │
+                             │  │  Evidence validator  │ │
+                             │  │  (quote must exist   │ │
+                             │  │   in source text)    │ │
+                             │  └──────────────────────┘ │
+                             │                          │
+                             └──────────┬───────────────┘
+                                        │
+                          ┌─────────────┼──────────────┐
+                          ▼             ▼               ▼
+                    ┌──────────┐  ┌──────────┐  ┌──────────────┐
+                    │ H2 (dev) │  │PostgreSQL│  │  AI provider │
+                    │ file-    │  │(prod)    │  │  (optional,  │
+                    │ backed   │  │          │  │  OpenAI-compat│
+                    └──────────┘  └──────────┘  └──────────────┘
+```
+
+| Layer | Technology |
+|-------|-----------|
+| Frontend | Next.js · React 19 · TypeScript |
+| Backend | Spring Boot 3 · Java 21 |
+| Local storage | H2 (file-backed, zero setup) |
+| Production database | PostgreSQL |
+| AI analysis | Any OpenAI-compatible chat-completions API |
+| File parsing | Isolated JVM worker processes (Apache PDFBox, Apache POI) |
+| Sessions | Anonymous cookie-based · 24-hour retention · no PII |
+
+PDF and DOCX parsing runs in short-lived, isolated JVM worker processes outside the main API process. See [`docs/parser-isolation.md`](docs/parser-isolation.md).
+
+---
+
+## Trust model
+
+> *"The model said so"* is not evidence. Every finding must cite a passage that exists verbatim in the document you supplied.
+
+- **Findings explain, not advise.** They describe what the contract text says — not whether it's enforceable or what a court would decide.
+- **Context is descriptive, not legal.** Selecting "United States" focuses analysis on relevant patterns; it does not invoke a reviewed legal corpus.
+- **Citations are validated.** Quote validation confirms the passage exists; it does not prove the interpretation is correct.
+- **External references are out of scope.** If a contract says "see Schedule A" and Schedule A isn't in the text, it isn't analysed.
+- **Q&A answers require document evidence.** If a question can't be answered from the supplied text, the answer is withheld — not guessed.
+
+---
+
+## Verify the build
 
 ```sh
-# Backend — from backend/
+# Backend
+cd backend
 mvn -B -ntp verify
-mvn spotless:apply    # apply Java formatting
+mvn spotless:apply      # apply Java formatting
 
-# Frontend — from frontend/
+# Frontend
+cd frontend
 npm run typecheck
 npm run lint
+npm run test
 npm run build
 ```
 
 ---
 
-## How findings work
+## Roadmap
 
-- **HIGH** — a clause with a potentially significant practical consequence (e.g. automatic renewal, broad IP assignment, one-sided termination).
-- **REVIEW** — a clause worth reading carefully, where context or a missing attachment might change its meaning.
-- **FAVORABLE** — a clause that explicitly grants you a right, protection, or option (e.g. refund provision, explicit opt-out, notice before price changes).
+See [`docs/roadmap.md`](docs/roadmap.md) for what's planned. In brief:
 
-Every finding must point to an exact passage from your document. The source validation rejects invented quotes — if the evidence can't be found in the text, the finding is withheld.
-
----
-
-## Architecture in brief
-
-| Layer | Technology |
-|---|---|
-| Frontend | Next.js · React · TypeScript |
-| Backend | Spring Boot 3 · Java 21 |
-| Local storage | H2 (file-backed) |
-| Production database | PostgreSQL |
-| AI analysis | Any OpenAI-compatible chat-completions API |
-| File parsing | Isolated worker processes (Apache PDFBox, Apache POI) |
-| Session | Anonymous cookie-based, 24-hour retention |
-
-Anonymous sessions expire automatically. No PII is required or collected.
+- Scanned PDF support (OCR pipeline)
+- Side-by-side contract comparison
+- Clause history / redline tracking
+- Reviewed legal-rule corpus (jurisdiction-specific patterns with cited sources)
+- Browser extension for in-page analysis
 
 ---
 
-## Trust boundaries
+## Contributing
 
-- **Findings are not legal opinions.** They explain what the contract text says, not whether it's enforceable or what a court would decide.
-- **Jurisdiction is context, not law.** Choosing "United States" focuses analysis on consumer-relevant patterns; it does not invoke a reviewed legal corpus.
-- **Citations are verified, not infallible.** Quote validation confirms the passage exists in the document; it does not prove the interpretation is correct.
-- **External documents are out of scope.** If a contract references "Schedule A" and Schedule A isn't in the supplied text, that content is not analyzed.
-- **Q&A answers require document evidence.** If a question can't be answered from the text, the answer is withheld — not guessed.
+Bug reports, feature requests, and pull requests are welcome. Open an issue to discuss anything substantial before sending a PR.
 
-See [`docs/architecture.md`](docs/architecture.md) for the full design and [`docs/operations.md`](docs/operations.md) for deployment configuration.
+```sh
+# Run the full check suite before opening a PR
+cd backend && mvn -B -ntp verify
+cd frontend && npm run typecheck && npm run lint && npm run test
+```
+
+---
+
+<div align="center">
+
+**Terms of Surrender** is not a law firm. It reads contracts — you decide what to do with the findings.
+
+<br />
+
+⭐ If this saves you from a bad contract, a star helps others find it.
+
+</div>
