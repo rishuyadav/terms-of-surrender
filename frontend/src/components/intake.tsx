@@ -410,6 +410,7 @@ export function Intake() {
                 <textarea
                   id="contract-text"
                   disabled={!hydrated}
+                  suppressHydrationWarning
                   value={text}
                   maxLength={config?.maxCharacters ?? 80000}
                   onChange={(event) => {
@@ -507,7 +508,7 @@ export function Intake() {
             <details className="context-section">
               <summary>
                 Add context (optional) — shapes what the analysis focuses on
-                {(() => {
+                {hydrated && (() => {
                   const parts: string[] = [];
                   if (jurisdiction === "US") parts.push("United States");
                   if (jurisdiction === "INDIA") parts.push("India");
@@ -554,7 +555,7 @@ export function Intake() {
                     disabled={!hydrated}
                     maxLength={80}
                     onChange={(event) => setRegion(event.target.value)}
-                    placeholder={jurisdiction === "INDIA" ? "e.g. Maharashtra" : "e.g. California"}
+                    placeholder={hydrated && jurisdiction === "INDIA" ? "e.g. Maharashtra" : "e.g. California"}
                   />
                 </label>
               </div>
