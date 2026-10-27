@@ -697,14 +697,25 @@ ${reportFindings.map((f, i) => `
                           : "§"}
                       </span>
                       <p>
-                        {sourceSegments(block, findings).map((segment) =>
-                          segment.findingIds.length === 0 ? (
-                            <span key={segment.start}>{segment.text}</span>
-                          ) : (
+                        {sourceSegments(block, findings).map((segment) => {
+                          if (segment.findingIds.length === 0) {
+                            return <span key={segment.start}>{segment.text}</span>;
+                          }
+                          const isActive = !!(selected && segment.findingIds.includes(selected));
+                          // Resolve impact class using priority: HIGH > REVIEW > FAVORABLE
+                          const segmentFindings = findings.filter((f) =>
+                            segment.findingIds.includes(f.id),
+                          );
+                          const impactClass = segmentFindings.some((f) => f.impact === "HIGH")
+                            ? "high"
+                            : segmentFindings.some((f) => f.impact === "REVIEW")
+                              ? "review"
+                              : "favorable";
+                          return (
                             <button
                               type="button"
                               key={segment.start}
-                              className={`source-highlight${selected && segment.findingIds.includes(selected) ? " active" : ""}`}
+                              className={`source-highlight ${impactClass}${isActive ? " active" : ""}`}
                               aria-label={`View finding for: ${segment.text}`}
                               onClick={() => {
                                 const finding = findings.find(
@@ -719,8 +730,8 @@ ${reportFindings.map((f, i) => `
                             >
                               {segment.text}
                             </button>
-                          ),
-                        )}
+                          );
+                        })}
                       </p>
                     </div>
                   ))}

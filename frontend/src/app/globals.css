@@ -947,15 +947,38 @@ svg {
   text-align: left;
   border: 0;
   padding: 2px 0;
-  background: #f5eacb;
-  color: #6d5a28;
   box-decoration-break: clone;
   -webkit-box-decoration-break: clone;
 }
-.source-highlight:hover,
-.source-highlight.active {
+/* Worth reviewing — amber/yellow (default) */
+.source-highlight.review {
+  background: #f5eacb;
+  color: #6d5a28;
+}
+.source-highlight.review:hover,
+.source-highlight.review.active {
   background: #ead38b;
   color: #53451d;
+}
+/* High impact — soft red */
+.source-highlight.high {
+  background: #fce8e6;
+  color: #9b3d37;
+}
+.source-highlight.high:hover,
+.source-highlight.high.active {
+  background: #f5c8c4;
+  color: #7a2e29;
+}
+/* Potential protection — soft green */
+.source-highlight.favorable {
+  background: #e6f0db;
+  color: #4f633b;
+}
+.source-highlight.favorable:hover,
+.source-highlight.favorable.active {
+  background: #cce3b8;
+  color: #3a4d28;
 }
 .source-pane-footer {
   padding: 11px 18px;
@@ -1701,14 +1724,35 @@ summary::-webkit-details-marker {
   background: #2a2414;
   border-color: #7a6030;
 }
-[data-theme="dark"] .source-highlight {
+/* Worth reviewing — amber/yellow */
+[data-theme="dark"] .source-highlight.review {
   background: #3a3010;
   color: #c0a060;
 }
-[data-theme="dark"] .source-highlight:hover,
-[data-theme="dark"] .source-highlight.active {
+[data-theme="dark"] .source-highlight.review:hover,
+[data-theme="dark"] .source-highlight.review.active {
   background: #4a3e18;
   color: #d4b870;
+}
+/* High impact — soft red */
+[data-theme="dark"] .source-highlight.high {
+  background: #3d2220;
+  color: #d97070;
+}
+[data-theme="dark"] .source-highlight.high:hover,
+[data-theme="dark"] .source-highlight.high.active {
+  background: #522c2a;
+  color: #e89090;
+}
+/* Potential protection — soft green */
+[data-theme="dark"] .source-highlight.favorable {
+  background: #243d24;
+  color: #7ab88a;
+}
+[data-theme="dark"] .source-highlight.favorable:hover,
+[data-theme="dark"] .source-highlight.favorable.active {
+  background: #2f4e2f;
+  color: #9acca8;
 }
 [data-theme="dark"] .source-pane-footer {
   background: #1e1e1a;
