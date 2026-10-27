@@ -1,3 +1,24 @@
+/*
+ * Register all colour tokens as typed custom properties so the browser
+ * can interpolate them during theme transitions. This lets a single
+ * transition on :root cascade a smooth colour shift to every element
+ * that references these variables, without animating each element
+ * individually.
+ */
+@property --paper      { syntax: "<color>"; inherits: true; initial-value: #f8f7f3; }
+@property --surface    { syntax: "<color>"; inherits: true; initial-value: #fffefa; }
+@property --ink        { syntax: "<color>"; inherits: true; initial-value: #252822; }
+@property --muted      { syntax: "<color>"; inherits: true; initial-value: #616958; }
+@property --line       { syntax: "<color>"; inherits: true; initial-value: #e3e3da; }
+@property --accent     { syntax: "<color>"; inherits: true; initial-value: #6d293b; }
+@property --accent-hover { syntax: "<color>"; inherits: true; initial-value: #542030; }
+@property --sage       { syntax: "<color>"; inherits: true; initial-value: #e9ede2; }
+@property --green      { syntax: "<color>"; inherits: true; initial-value: #416047; }
+@property --amber      { syntax: "<color>"; inherits: true; initial-value: #8b641c; }
+@property --amber-bg   { syntax: "<color>"; inherits: true; initial-value: #f8f0dc; }
+@property --red        { syntax: "<color>"; inherits: true; initial-value: #9b3d37; }
+@property --red-bg     { syntax: "<color>"; inherits: true; initial-value: #f8e9e5; }
+
 :root {
   --paper: #f8f7f3;
   --surface: #fffefa;
@@ -12,6 +33,21 @@
   --amber-bg: #f8f0dc;
   --red: #9b3d37;
   --red-bg: #f8e9e5;
+  /* Transition the tokens themselves — cascades smoothly to all consumers */
+  transition:
+    --paper 0.28s ease-out,
+    --surface 0.28s ease-out,
+    --ink 0.28s ease-out,
+    --muted 0.28s ease-out,
+    --line 0.28s ease-out,
+    --accent 0.28s ease-out,
+    --accent-hover 0.28s ease-out,
+    --sage 0.28s ease-out,
+    --green 0.28s ease-out,
+    --amber 0.28s ease-out,
+    --amber-bg 0.28s ease-out,
+    --red 0.28s ease-out,
+    --red-bg 0.28s ease-out;
 }
 
 [data-theme="dark"] {
@@ -95,18 +131,18 @@ a {
 }
 
 /*
- * Smooth colour transitions when toggling theme.
- * Only background, colour and border are transitioned — layout properties
- * are intentionally excluded to keep motion lightweight.
- * The prefers-reduced-motion block at the bottom of this file overrides
- * these durations to near-zero for users who opt out.
+ * Fallback colour transitions for elements that use hardcoded colours
+ * rather than CSS tokens. Token-based colours are handled more efficiently
+ * by the :root transition above. ease-out commits the colour immediately
+ * and settles gracefully — feels snappier than the default ease curve.
+ * The prefers-reduced-motion block at the bottom overrides to near-zero.
  */
 *,
 *::before,
 *::after {
-  transition-property: background-color, color, border-color, box-shadow, fill, stroke;
-  transition-duration: 0.22s;
-  transition-timing-function: ease;
+  transition-property: background-color, color, border-color, box-shadow, fill, stroke, outline-color;
+  transition-duration: 0.28s;
+  transition-timing-function: ease-out;
 }
 svg {
   flex-shrink: 0;
@@ -3319,6 +3355,9 @@ summary::-webkit-details-marker {
 @media (prefers-reduced-motion: reduce) {
   html {
     scroll-behavior: auto;
+  }
+  :root {
+    transition-duration: 0.01ms !important;
   }
   *,
   *::before,
