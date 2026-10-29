@@ -127,7 +127,7 @@ npm run build
 
 Every finding must point to an exact passage from your document. The source validation rejects invented quotes — if the evidence can't be found in the text, the finding is withheld.
 
-The `preview-2` engine preserves local exceptions in the quoted paragraph and downgrades recognized unresolved references, separate qualifications, and split paragraphs to review. It does not resolve distant exceptions, choose between plans or regions, or follow linked policies. It assumes the reader is the customer for consumer agreements and the service provider for freelance agreements. Zero high-impact matches is not a safety endorsement. See [preview rules and evaluation](docs/preview-rules.md).
+The `preview-2.1` engine highlights the operative sentence and keeps its surrounding passage separately available for checking conditions and exceptions. Recognized unresolved references, separate qualifications, and split paragraphs downgrade findings to review. It does not resolve distant exceptions, choose between plans or regions, or follow linked policies. It assumes the reader is the customer for consumer agreements and the service provider for freelance agreements. Zero high-impact matches is not a safety endorsement. See [preview rules and evaluation](docs/preview-rules.md).
 
 The four original fictional samples contain membership/plan schedules and, for freelance engagements, included statements of work and commercial schedules. They are product demonstrations, **not templates to sign or reuse**. One deliberately balanced sample demonstrates that realistic contracts need not produce high-impact findings.
 

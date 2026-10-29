@@ -1,6 +1,6 @@
 # Offline preview v2
 
-This is a deterministic, local-pattern preview, not AI analysis, legal advice, an enforceability test, or a full contract interpreter. Existing `preview-1` and model reports use the same JSON schema and remain readable. Only newly generated reports use `preview-2`.
+This is a deterministic, local-pattern preview, not AI analysis, legal advice, an enforceability test, or a full contract interpreter. Existing `preview-1`, `preview-2` and model reports remain readable. Newly generated reports use `preview-2.1`, which fixes evidence granularity without changing the report schema or detection rules.
 
 ## Supported consequences
 
@@ -17,14 +17,18 @@ Consumer rules assume the reviewing reader is the customer/member. Freelance rul
 
 ## Evidence and conservatism
 
-- Normalize whitespace, typographic apostrophes and common hyphens only for matching; cite the original, exactly validated paragraph/block.
-- Match within bounded sentence windows, never by concatenating amounts and conditions from unrelated paragraphs. Ignore recognized headings for matching while retaining them in evidence.
-- Include local exceptions in the source quote. Link an immediately following recognized qualifying paragraph. References and paragraph fragmentation lower consequence findings to REVIEW; a reference is not automatically resolved.
+- Normalize whitespace, typographic apostrophes and common hyphens only for matching; cite the original, exactly validated operative sentence. Preserve its absolute offset while splitting, so repeated identical sentences are not confused.
+- Match within bounded sentence windows, never by concatenating amounts and conditions from unrelated paragraphs. Ignore recognized headings for matching. Highlight only primary evidence, not the paragraph used for context.
+- Inspect the surrounding block for local qualifications and retain it in the document. The finding card and HTML export offer a separate expandable surrounding passage; that context is not highlighted. Link an immediately following recognized qualifying paragraph. References and paragraph fragmentation lower consequence findings to REVIEW; a reference is not automatically resolved.
 - A two-sentence relationship can be missed. Distant qualifications, unusual drafting, incorrect category choices, scanned text, and missing policies can change the interpretation. Limitations remain visible.
 - Inspect the whole supplied document before selecting up to three distinct passages per consequence family. Repeated normalized sentences and multiple hits in the same block are deduplicated within that family. Other topics have one representative passage each; this is not an exhaustive inventory.
 - Rank HIGH before REVIEW before FAVORABLE. Among consequence findings use a documented practical-attention order: cancellation cost, unpaid work, IP transfer, conditional payment, renewal deadline, trial conversion. This is a deterministic navigation policy, not a legal severity ranking or comparison of monetary losses. Tie-break by source position.
 - Favorable claims require affirmative wording for the reviewing party. Non-refundability, wrong-party refunds, confidentiality prohibitions and non-exclusive licenses must not become protections or work restrictions. Protections do not subtract from or cancel consequential findings.
 - No absence claims: not finding a cap, opt-out, deadline or protection cannot establish that it is absent. No automatic external-policy fetches or new provider calls.
+
+Source rendering splits at all evidence boundaries without duplicating text. Unselected shared ranges use HIGH > REVIEW > FAVORABLE; a selected finding instead owns its active color. Shared ranges expose an explicit finding chooser, including for previously saved broad-range reports. Selecting an already active range navigates back to its card; the adjacent count button still allows choosing another finding. The surrounding block is marked with a border, not a full-paragraph fill. Finding-card filters do not hide source highlights. Existing saved report ranges are not rewritten; reanalyze an older preview to obtain narrower sentence evidence.
+
+The 2.1 highlighting correction was verified by rerunning the existing 153 backend tests, 18 frontend tests and 55 selected browser checks, plus direct browser checks of identical, nested and crossing overlaps, active colors, source integrity, repeated/Unicode sentence offsets, context export, chooser dismissal and keyboard focus return. No new test cases were added; existing expectations were updated for sentence evidence and the engine version.
 
 ## Product examples and testing
 

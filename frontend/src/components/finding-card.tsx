@@ -25,6 +25,7 @@ export function FindingCard({
   onSelect,
   onSelectRelated,
   sourceType = "PDF",
+  contextText,
 }: {
   finding: Finding;
   index: number;
@@ -32,6 +33,7 @@ export function FindingCard({
   onSelect: () => void;
   onSelectRelated?: (blockId: string) => void;
   sourceType?: "TEXT" | "PDF" | "DOCX";
+  contextText?: string;
 }) {
   const [copied, setCopied] = useState(false);
   const [copyError, setCopyError] = useState(false);
@@ -60,7 +62,9 @@ export function FindingCard({
         <span className="finding-index">{String(index + 1).padStart(2, "0")}</span>
       </div>
       <p className="finding-category">{finding.category}</p>
-      <h3 id={`finding-title-${finding.id}`}>{finding.title}</h3>
+      <h3 id={`finding-title-${finding.id}`} tabIndex={-1}>
+        {finding.title}
+      </h3>
       <p className="finding-explanation">{finding.explanation}</p>
       <div className="why-matters">
         <Lightbulb size={15} />
@@ -85,6 +89,17 @@ export function FindingCard({
         </summary>
         <blockquote>{finding.evidence.quote}</blockquote>
       </details>
+      {contextText && contextText !== finding.evidence.quote && (
+        <details className="evidence-details evidence-context">
+          <summary>
+            Surrounding passage (context) <ChevronDown size={15} />
+          </summary>
+          <p>
+            Read this for conditions and exceptions. Only the exact wording above is highlighted.
+          </p>
+          <blockquote>{contextText}</blockquote>
+        </details>
+      )}
       <button type="button" className="source-link" onClick={onSelect}>
         {selected ? <Check size={14} /> : <ArrowUpRight size={14} />}
         {selected ? "Highlighted in source" : "Show in document"}

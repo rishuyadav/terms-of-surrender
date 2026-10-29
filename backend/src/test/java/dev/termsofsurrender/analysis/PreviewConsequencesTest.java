@@ -203,7 +203,8 @@ class PreviewConsequencesTest {
                         .findFirst()
                         .orElseThrow();
         assertThat(finding.impact()).isEqualTo(Analysis.Impact.REVIEW);
-        assertThat(finding.evidence().quote()).contains("closes permanently");
+        assertThat(finding.evidence().quote())
+                .isEqualTo("If you cancel, a cancellation fee of $90 applies.");
         assertThat(finding.relatedBlockIds()).containsExactly("p1-b2");
     }
 
@@ -276,7 +277,7 @@ class PreviewConsequencesTest {
         var report = analyze(Analysis.Category.CONSUMER, text);
         assertThat(report.findings()).anyMatch(f -> f.impact() == Analysis.Impact.HIGH);
         assertThat(report.findings())
-                .allSatisfy(f -> assertThat(f.evidence().quote()).contains("1.5% per month"));
+                .allSatisfy(f -> assertThat(f.evidence().quote()).doesNotContain("Late interest"));
     }
 
     @Test

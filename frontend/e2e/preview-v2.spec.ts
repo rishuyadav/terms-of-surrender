@@ -21,7 +21,7 @@ for (const example of cases) {
     const response = await context.request.get(`/api/analyses/${id}`);
     expect(response.ok()).toBe(true);
     const view = (await response.json()) as AnalysisView;
-    expect(view.report?.engineVersion).toBe("preview-2");
+    expect(view.report?.engineVersion).toBe("preview-2.1");
     const high = view.report!.findings.filter((finding) => finding.impact === "HIGH");
     expect([...new Set(high.map((finding) => finding.id.replace(/-\d+$/, "")))].sort()).toEqual(
       [...example.expected].sort(),
@@ -103,7 +103,7 @@ test("JSON and HTML exports include the new consequences and checklist", async (
   await page.getByRole("button", { name: "Download report as JSON", exact: true }).click();
   const json = await jsonEvent;
   const view = JSON.parse(await readFile((await json.path())!, "utf8")) as AnalysisView;
-  expect(view.report?.engineVersion).toBe("preview-2");
+  expect(view.report?.engineVersion).toBe("preview-2.1");
   expect(view.report?.findings.some((finding) => finding.impact === "HIGH")).toBe(true);
   expect(view.report?.checklist?.length).toBeGreaterThan(0);
   const htmlEvent = page.waitForEvent("download");

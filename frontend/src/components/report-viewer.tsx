@@ -30,6 +30,7 @@ import {
 import { Brand } from "./brand";
 import { ThemeToggle } from "./theme-toggle";
 import { FindingCard } from "./finding-card";
+import { SourceHighlight } from "./source-highlight";
 import { useAnalysis } from "@/hooks/use-analysis";
 import { deleteAnalysis, askContract } from "@/lib/api";
 import type { QaAnswer } from "@/lib/api";
@@ -54,13 +55,19 @@ export function ReportViewer({ id }: { id: string }) {
   const [actionError, setActionError] = useState<string | null>(null);
   const [allCopied, setAllCopied] = useState(false);
   const [sourceSearch, setSourceSearch] = useState("");
+  const [overlap, setOverlap] = useState<{
+    blockId: string;
+    start: number;
+    findingIds: string[];
+    triggerId: string;
+  } | null>(null);
   const [qaQuestion, setQaQuestion] = useState("");
   const [qaAsking, setQaAsking] = useState(false);
   const [qaAnswers, setQaAnswers] = useState<QaAnswer[]>([]);
   const [qaError, setQaError] = useState<string | null>(null);
   const findings = view?.report?.findings ?? [];
   const consequencePreview = view?.report?.mode === "RULE_BASED_PREVIEW"
-    && view.report.engineVersion === "preview-2";
+    && ["preview-2", "preview-2.1"].includes(view.report.engineVersion);
   const quietTopics = consequencePreview && filter === "ALL"
     ? findings.filter((finding) => finding.impact === "REVIEW"
         && previewTopicIds.has(finding.id)
@@ -80,27 +87,34 @@ export function ReportViewer({ id }: { id: string }) {
   }, [searchQuery, view]);
 
   function selectFinding(finding: Finding, fromSource = false) {
+    setOverlap(null);
     setSelected(finding.id);
     if (fromSource) {
       setFilter("ALL");
       setMobilePane("findings");
-      requestAnimationFrame(() =>
-        document
-          .getElementById(`finding-${finding.id}`)
-          ?.scrollIntoView({ behavior: "smooth", block: "nearest" }),
-      );
+      requestAnimationFrame(() => {
+        document.getElementById(`finding-title-${finding.id}`)?.focus({ preventScroll: true });
+        document.getElementById(`finding-${finding.id}`)
+          ?.scrollIntoView({ behavior: "smooth", block: "nearest" });
+      });
     } else {
       // Clear source search if the target block would be filtered out.
       if (matchingBlockIds && !matchingBlockIds.has(finding.evidence.blockId)) {
         setSourceSearch("");
       }
       setMobilePane("source");
-      requestAnimationFrame(() =>
-        document
-          .getElementById(`block-${finding.evidence.blockId}`)
-          ?.scrollIntoView({ behavior: "smooth", block: "center" }),
-      );
+      requestAnimationFrame(() => {
+        const highlight = document.querySelector<HTMLElement>(`#block-${finding.evidence.blockId} .source-highlight.active`);
+        highlight?.focus({ preventScroll: true });
+        highlight?.scrollIntoView({ behavior: "smooth", block: "center" });
+      });
     }
+  }
+
+  function closeOverlap() {
+    const triggerId = overlap?.triggerId;
+    setOverlap(null);
+    if (triggerId) requestAnimationFrame(() => document.getElementById(triggerId)?.focus());
   }
 
   async function removeReport() {
@@ -153,6 +167,11 @@ export function ReportViewer({ id }: { id: string }) {
       .replace(/'/g, "&#39;");
   }
 
+  function contextForFinding(finding: Finding): string | undefined {
+    const text = view?.document.blocks.find((block) => block.id === finding.evidence.blockId)?.text;
+    return text !== finding.evidence.quote ? text : undefined;
+  }
+
   function downloadReport() {
     if (!view || !view.report) return;
     const reportFindings = view.report.findings;
@@ -196,14 +215,18 @@ export function ReportViewer({ id }: { id: string }) {
 </div>
 ${view.report.summary ? `<div class="summary">${esc(view.report.summary)}</div>` : ""}
 ${checklist.length > 0 ? `<div class="checklist"><h3>BEFORE YOU AGREE</h3><ul>${checklist.map((c) => `<li><span class="tag tag-${c.action.toLowerCase()}">${esc(c.action)}</span>${esc(c.text)}</li>`).join("")}</ul></div>` : ""}
-${reportFindings.map((f, i) => `
+${reportFindings.map((f, i) => {
+  const context = contextForFinding(f);
+  return `
 <div class="finding">
   <span class="badge ${f.impact.toLowerCase()}">${f.impact === "HIGH" ? "High impact" : f.impact === "REVIEW" ? "Worth reviewing" : "Potential protection"}</span>
   <h2>${i + 1}. ${esc(f.title)}</h2>
   <p class="explanation">${esc(f.explanation)}</p>
   <blockquote>${esc(f.evidence.quote)}</blockquote>
+  ${context ? `<details><summary>Surrounding passage (context)</summary><blockquote>${esc(context)}</blockquote></details>` : ""}
   <div class="question"><strong>A question to ask:</strong> ${esc(f.suggestedQuestion)}</div>
-</div>`).join("")}
+</div>`;
+}).join("")}
 <div class="limitations">
   <strong>Limitations</strong>
   <ul>${view.report.limitations.map((l) => `<li>${esc(l)}</li>`).join("")}</ul>
@@ -237,10 +260,12 @@ ${reportFindings.map((f, i) => `
         key={finding.id}
         finding={finding}
         sourceType={view?.document.sourceType}
+        contextText={contextForFinding(finding)}
         index={index}
         selected={selected === finding.id}
         onSelect={() => selectFinding(finding)}
         onSelectRelated={(blockId) => {
+          setOverlap(null);
           if (matchingBlockIds && !matchingBlockIds.has(blockId)) setSourceSearch("");
           setSelected(finding.id);
           setMobilePane("source");
@@ -686,7 +711,10 @@ ${reportFindings.map((f, i) => `
                     className="source-search-input"
                     placeholder="Search the document…"
                     value={sourceSearch}
-                    onChange={(e) => setSourceSearch(e.target.value)}
+                    onChange={(e) => {
+                      setOverlap(null);
+                      setSourceSearch(e.target.value);
+                    }}
                     aria-label="Search document text"
                   />
                   {sourceSearch && (
@@ -735,43 +763,71 @@ ${reportFindings.map((f, i) => `
                           ? String(block.page).padStart(2, "0")
                           : "§"}
                       </span>
+                      <div className="source-block-content">
                       <p>
                         {sourceSegments(block, findings).map((segment) => {
                           if (segment.findingIds.length === 0) {
                             return <span key={segment.start}>{segment.text}</span>;
                           }
-                          const isActive = !!(selected && segment.findingIds.includes(selected));
-                          // Resolve impact class using priority: HIGH > REVIEW > FAVORABLE
                           const segmentFindings = findings.filter((f) =>
                             segment.findingIds.includes(f.id),
                           );
-                          const impactClass = segmentFindings.some((f) => f.impact === "HIGH")
-                            ? "high"
-                            : segmentFindings.some((f) => f.impact === "REVIEW")
-                              ? "review"
-                              : "favorable";
                           return (
-                            <button
-                              type="button"
+                            <SourceHighlight
                               key={segment.start}
-                              className={`source-highlight ${impactClass}${isActive ? " active" : ""}`}
-                              aria-label={`View finding for: ${segment.text}`}
-                              onClick={() => {
-                                const finding = findings.find(
-                                  (candidate) =>
-                                    candidate.id ===
-                                    (selected && segment.findingIds.includes(selected)
-                                      ? selected
-                                      : segment.findingIds[0]),
-                                );
-                                if (finding) selectFinding(finding, true);
+                              segment={segment}
+                              findings={segmentFindings}
+                              selected={selected}
+                              choicesOpen={overlap?.blockId === block.id && overlap.start === segment.start}
+                              onSelect={(finding) => selectFinding(finding, true)}
+                              onChoose={(triggerId) => {
+                                setOverlap({ blockId: block.id, start: segment.start,
+                                  findingIds: segment.findingIds, triggerId });
+                                requestAnimationFrame(() => {
+                                  const chooser = document.getElementById("source-overlap-chooser");
+                                  chooser?.focus({ preventScroll: true });
+                                  chooser?.scrollIntoView({ behavior: "smooth", block: "nearest" });
+                                });
                               }}
-                            >
-                              {segment.text}
-                            </button>
+                            />
                           );
                         })}
                       </p>
+                      {overlap?.blockId === block.id && (
+                        <section
+                          id="source-overlap-chooser"
+                          className="source-overlap-chooser"
+                          aria-labelledby="source-overlap-title"
+                          tabIndex={-1}
+                          onKeyDown={(event) => {
+                            if (event.key === "Escape") {
+                              event.preventDefault();
+                              event.stopPropagation();
+                              closeOverlap();
+                            }
+                          }}
+                        >
+                          <div className="source-overlap-heading">
+                            <h3 id="source-overlap-title">Choose a finding for this passage</h3>
+                            <button type="button" className="icon-button" onClick={closeOverlap} aria-label="Close overlapping findings">
+                              <X size={15} />
+                            </button>
+                          </div>
+                          <ul>
+                            {findings.filter((finding) => overlap.findingIds.includes(finding.id)).map((finding) => (
+                              <li key={finding.id}>
+                                <button type="button" aria-pressed={finding.id === selected} onClick={() => selectFinding(finding, true)}>
+                                  <span className={`impact-pill ${finding.impact.toLowerCase()}`}>
+                                    {finding.impact === "HIGH" ? "High impact" : finding.impact === "REVIEW" ? "Worth reviewing" : "Potential protection"}
+                                  </span>
+                                  {finding.title}
+                                </button>
+                              </li>
+                            ))}
+                          </ul>
+                        </section>
+                      )}
+                      </div>
                     </div>
                   ))}
                   {matchingBlockIds !== null && matchingBlockIds.size === 0 && (

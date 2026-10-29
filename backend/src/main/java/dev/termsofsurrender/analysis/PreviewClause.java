@@ -12,6 +12,7 @@ record PreviewClause(
         Document.Block block,
         String text,
         String normalized,
+        int start,
         List<String> related,
         boolean fragmented) {
     private static final Pattern BOUNDARY =
@@ -65,11 +66,18 @@ record PreviewClause(
             int end,
             List<String> related,
             boolean fragmented) {
-        String text = block.text().substring(start, end).strip();
+        String raw = block.text().substring(start, end);
+        String text = raw.strip();
         if (text.length() >= 25) {
+            int absoluteStart = block.start() + start + raw.length() - raw.stripLeading().length();
             clauses.add(
                     new PreviewClause(
-                            block, text, normalize(text), List.copyOf(related), fragmented));
+                            block,
+                            text,
+                            normalize(text),
+                            absoluteStart,
+                            List.copyOf(related),
+                            fragmented));
         }
     }
 

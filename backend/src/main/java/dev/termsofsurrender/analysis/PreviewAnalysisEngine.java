@@ -250,8 +250,11 @@ public class PreviewAnalysisEngine implements AnalysisEngine {
                     continue;
                 }
                 var evidence =
-                        validator.locate(
-                                input.document(), clause.block().id(), clause.block().text());
+                        validator.locateAt(
+                                input.document(),
+                                clause.block().id(),
+                                clause.text(),
+                                clause.start());
                 if (evidence.isEmpty()) {
                     continue;
                 }
@@ -262,7 +265,7 @@ public class PreviewAnalysisEngine implements AnalysisEngine {
                                 + clause.text()
                                 + "” "
                                 + detector.explanation()
-                                + " The quoted paragraph includes the local wording and exceptions; confirm that it applies to your plan."
+                                + " The highlight identifies the operative sentence, not every qualification. Read the surrounding paragraph and related passages for exceptions, and confirm that it applies to your plan."
                                 + (uncertain
                                         ? " A cross-reference, separate qualification, or split paragraph needs review, so this has not been classified as high impact."
                                         : "");
@@ -377,7 +380,7 @@ public class PreviewAnalysisEngine implements AnalysisEngine {
 
         return new Analysis.Report(
                 Analysis.Mode.RULE_BASED_PREVIEW,
-                "preview-2",
+                "preview-2.1",
                 List.copyOf(findings),
                 List.copyOf(limitations),
                 false,
@@ -430,7 +433,7 @@ public class PreviewAnalysisEngine implements AnalysisEngine {
     private java.util.Optional<Analysis.Finding> topicFinding(
             Document document, Rule rule, PreviewClause clause) {
         return validator
-                .locate(document, clause.block().id(), clause.block().text())
+                .locateAt(document, clause.block().id(), clause.text(), clause.start())
                 .map(
                         evidence ->
                                 new Analysis.Finding(
