@@ -35,6 +35,7 @@ export function FindingCard({
 }) {
   const [copied, setCopied] = useState(false);
   const [copyError, setCopyError] = useState(false);
+  const isQuestion = finding.suggestedQuestion.trim().endsWith("?");
 
   async function copyQuestion() {
     try {
@@ -107,16 +108,17 @@ export function FindingCard({
       )}
       <details className="question-details">
         <summary>
-          <MessageCircleQuestion size={15} /> A question worth asking <ChevronDown size={14} />
+          <MessageCircleQuestion size={15} />{" "}
+          {isQuestion ? "A question worth asking" : "Before you agree"} <ChevronDown size={14} />
         </summary>
         <p>{finding.suggestedQuestion}</p>
         <button type="button" className="text-button" onClick={copyQuestion}>
           {copied ? <Check size={13} /> : <Copy size={13} />}
-          {copied ? "Copied" : "Copy question"}
+          {copied ? "Copied" : isQuestion ? "Copy question" : "Copy action"}
         </button>
         {copyError && (
           <p role="status" className="copy-error">
-            Clipboard unavailable. Select the question above to copy it.
+            Clipboard unavailable. Select the {isQuestion ? "question" : "action"} above to copy it.
           </p>
         )}
       </details>

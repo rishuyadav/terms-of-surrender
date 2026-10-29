@@ -10,7 +10,9 @@ test("sample agreement → evidence-backed report → deletion", async ({ page, 
   await expect(page.getByText("Keyword preview, not an AI or legal assessment.")).toBeVisible({
     timeout: 20000,
   });
-  await expect(page.getByRole("heading", { name: "Check how renewal works" })).toBeVisible();
+  await expect(
+    page.getByRole("heading", { name: "Renewal has an advance cancellation deadline" }),
+  ).toBeVisible();
 
   const reportUrl = page.url();
   const id = reportUrl.split("/").at(-1);
@@ -22,7 +24,7 @@ test("sample agreement → evidence-backed report → deletion", async ({ page, 
   await page.getByRole("button", { name: "Show in document" }).first().click();
   await expect(page.locator(".source-highlight.active").first()).toBeVisible();
   await expect(page.locator(".source-highlight.active").first()).toContainText(
-    "renews automatically",
+    "early termination fee",
   );
   await page.reload();
   await expect(page.getByText("Keyword preview, not an AI or legal assessment.")).toBeVisible();
@@ -37,6 +39,7 @@ test("sample agreement → evidence-backed report → deletion", async ({ page, 
 test("India and freelance are independent context choices", async ({ page }) => {
   await page.goto("/");
   await page.getByRole("button", { name: /The freelance contract/ }).click();
+  await page.locator(".context-section > summary").click();
   await page.getByLabel("Your location").selectOption("INDIA");
   await expect(page.getByLabel("Agreement type")).toHaveValue("FREELANCE");
   await page.getByRole("button", { name: "Read the fine print" }).click();
@@ -45,7 +48,7 @@ test("India and freelance are independent context choices", async ({ page }) => 
     timeout: 20000,
   });
   await expect(
-    page.getByRole("heading", { name: "Check ownership and license rights" }),
+    page.getByRole("heading", { name: "Rights can transfer before you are paid" }),
   ).toBeVisible();
 });
 

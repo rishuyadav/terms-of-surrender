@@ -397,7 +397,8 @@ public class ModelAnalysisEngine implements AnalysisEngine, AutoCloseable {
             JsonNode choice = mapper.readTree(response.body()).path("choices").path(0);
             String finishReason = choice.path("finish_reason").asText("");
             if (!finishReason.equalsIgnoreCase("stop")) {
-                throw new IllegalStateException("Model response incomplete: finish_reason=" + finishReason);
+                throw new IllegalStateException(
+                        "Model response incomplete: finish_reason=" + finishReason);
             }
             return mapper.readTree(choice.path("message").path("content").asText());
         } catch (InterruptedException exception) {

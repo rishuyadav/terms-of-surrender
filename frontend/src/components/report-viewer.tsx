@@ -36,6 +36,13 @@ import type { QaAnswer } from "@/lib/api";
 import { contextLabel, sourceSegments } from "@/lib/source";
 import type { Finding, Impact } from "@/lib/types";
 
+// Stable topic IDs from the preview report contract; consequence findings have distinct IDs.
+const previewTopicIds = new Set([
+  "renewal", "arbitration", "fees", "liability", "changes", "ip", "payment",
+  "termination", "data", "restriction", "scope-of-work", "expenses", "acceptance",
+  "free-trial", "notice-of-changes",
+]);
+
 export function ReportViewer({ id }: { id: string }) {
   const router = useRouter();
   const [retry, setRetry] = useState(0);
@@ -52,6 +59,14 @@ export function ReportViewer({ id }: { id: string }) {
   const [qaAnswers, setQaAnswers] = useState<QaAnswer[]>([]);
   const [qaError, setQaError] = useState<string | null>(null);
   const findings = view?.report?.findings ?? [];
+  const consequencePreview = view?.report?.mode === "RULE_BASED_PREVIEW"
+    && view.report.engineVersion === "preview-2";
+  const quietTopics = consequencePreview && filter === "ALL"
+    ? findings.filter((finding) => finding.impact === "REVIEW"
+        && previewTopicIds.has(finding.id)
+        && !view?.report?.priorities?.includes(finding.id))
+    : [];
+  const quietTopicIds = new Set(quietTopics.map((finding) => finding.id));
 
   // Blocks that match the source search query (case-insensitive substring).
   const searchQuery = sourceSearch.trim().toLowerCase();
@@ -214,6 +229,28 @@ ${reportFindings.map((f, i) => `
     a.download = "contract-analysis.json";
     a.click();
     URL.revokeObjectURL(url);
+  }
+
+  function renderFinding(finding: Finding, index: number) {
+    return (
+      <FindingCard
+        key={finding.id}
+        finding={finding}
+        sourceType={view?.document.sourceType}
+        index={index}
+        selected={selected === finding.id}
+        onSelect={() => selectFinding(finding)}
+        onSelectRelated={(blockId) => {
+          if (matchingBlockIds && !matchingBlockIds.has(blockId)) setSourceSearch("");
+          setSelected(finding.id);
+          setMobilePane("source");
+          requestAnimationFrame(() =>
+            document.getElementById(`block-${blockId}`)
+              ?.scrollIntoView({ behavior: "smooth", block: "center" }),
+          );
+        }}
+      />
+    );
   }
 
   return (
@@ -380,7 +417,9 @@ ${reportFindings.map((f, i) => `
                     </strong>
                     <span>
                       {view.report?.mode === "RULE_BASED_PREVIEW"
-                        ? "These are topics worth inspecting, not a verdict on whether the terms are harmful or enforceable."
+                        ? consequencePreview
+                          ? "High impact flags explicit potentially consequential conditions. It does not mean illegal or unenforceable. Check the quoted exceptions and whether each passage applies to your plan."
+                          : "These are topics worth inspecting, not a verdict on whether the terms are harmful or enforceable."
                         : "Exact quotes are checked against your source. Interpretations can still be wrong."}{" "}
                       No reviewed legal guidance is enabled; jurisdiction context shapes focus, not conclusions.
                     </span>
@@ -760,7 +799,7 @@ ${reportFindings.map((f, i) => `
                       onClick={copyAllQuestions}
                     >
                       {allCopied ? <Check size={13} /> : <Copy size={13} />}
-                      {allCopied ? "Copied" : "Copy all questions"}
+                      {allCopied ? "Copied" : consequencePreview ? "Copy questions and actions" : "Copy all questions"}
                     </button>
                   )}
                 </div>
@@ -796,7 +835,7 @@ ${reportFindings.map((f, i) => `
                       <p>
                         {view.status === "COMPLETED"
                           ? view.report?.mode === "RULE_BASED_PREVIEW"
-                            ? "No keyword patterns matched. This is not a safety endorsement — review the full source text and check the limitations below before deciding."
+                            ? "No supported clause patterns matched. This is not a safety endorsement — review the full source text and check the limitations below before deciding."
                             : "The AI found no specific concerns to highlight. Review the source text and the limitations below before relying on this result."
                           : "You can read the extracted source while the analysis runs."}
                       </p>
@@ -807,31 +846,19 @@ ${reportFindings.map((f, i) => `
                       No findings in this category. This does not establish the absence of risk.
                     </p>
                   ) : (
-                    findings.map((finding, index) =>
-                      filter !== "ALL" && finding.impact !== filter ? null : (
-                        <FindingCard
-                          key={finding.id}
-                          finding={finding}
-                          sourceType={view.document.sourceType}
-                          index={index}
-                          selected={selected === finding.id}
-                          onSelect={() => selectFinding(finding)}
-                          onSelectRelated={(blockId) => {
-                            // Navigate to a related block in the source pane.
-                            if (matchingBlockIds && !matchingBlockIds.has(blockId)) {
-                              setSourceSearch("");
-                            }
-                            setSelected(finding.id);
-                            setMobilePane("source");
-                            requestAnimationFrame(() =>
-                              document
-                                .getElementById(`block-${blockId}`)
-                                ?.scrollIntoView({ behavior: "smooth", block: "center" }),
-                            );
-                          }}
-                        />
-                      ),
-                    )
+                    <>
+                      {findings.map((finding, index) =>
+                        (filter !== "ALL" && finding.impact !== filter) || quietTopicIds.has(finding.id)
+                          ? null : renderFinding(finding, index),
+                      )}
+                      {quietTopics.length > 0 && (
+                        <details className="other-topics" open={quietTopics.some((finding) => finding.id === selected) || undefined}>
+                          <summary>Other topics detected ({quietTopics.length})</summary>
+                          <p>These are topic matches, not established adverse consequences. Read them alongside the full agreement.</p>
+                          {quietTopics.map((finding) => renderFinding(finding, findings.indexOf(finding)))}
+                        </details>
+                      )}
+                    </>
                   )}
                 </div>
               </section>

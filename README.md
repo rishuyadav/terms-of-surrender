@@ -60,7 +60,7 @@ npm run dev
 
 Open **http://localhost:3000**. The frontend proxies `/api` to the backend at port 8081.
 
-No AI key is required. Without one, you get a rule-based keyword preview — clearly labeled, useful for the most common clause patterns. Local data is stored in `backend/.data/` and expires automatically.
+No AI key is required. Without one, you get an offline rules-based preview: local patterns identify explicit renewal deadlines, trial conversion, cancellation costs, conditional freelance payment, IP transfer before payment, and unpaid work on termination. Other matches are labeled as topics to review, not established adverse consequences. Local data is stored in `backend/.data/` and expires automatically.
 
 ---
 
@@ -121,11 +121,15 @@ npm run build
 
 ## How findings work
 
-- **HIGH** — a clause with a potentially significant practical consequence (e.g. automatic renewal, broad IP assignment, one-sided termination).
+- **HIGH** — explicit wording with a potentially significant practical consequence, not a judgment that a term is illegal or unenforceable. In the offline preview, an ordinary renewal mention alone is not enough.
 - **REVIEW** — a clause worth reading carefully, where context or a missing attachment might change its meaning.
 - **FAVORABLE** — a clause that explicitly grants you a right, protection, or option (e.g. refund provision, explicit opt-out, notice before price changes).
 
 Every finding must point to an exact passage from your document. The source validation rejects invented quotes — if the evidence can't be found in the text, the finding is withheld.
+
+The `preview-2` engine preserves local exceptions in the quoted paragraph and downgrades recognized unresolved references, separate qualifications, and split paragraphs to review. It does not resolve distant exceptions, choose between plans or regions, or follow linked policies. It assumes the reader is the customer for consumer agreements and the service provider for freelance agreements. Zero high-impact matches is not a safety endorsement. See [preview rules and evaluation](docs/preview-rules.md).
+
+The four original fictional samples contain membership/plan schedules and, for freelance engagements, included statements of work and commercial schedules. They are product demonstrations, **not templates to sign or reuse**. One deliberately balanced sample demonstrates that realistic contracts need not produce high-impact findings.
 
 ---
 

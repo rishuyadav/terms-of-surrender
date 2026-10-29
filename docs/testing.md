@@ -20,6 +20,8 @@ Backend tests cover evidence validity, text boundaries and Unicode, PDF extracti
 
 Frontend component tests cover source segmentation, API errors, evidence/clipboard controls, session retries, submission retries, and invalid replacement uploads.
 
+Offline preview regression cases, public-pattern provenance, shared product samples and supported limitations are documented in [preview rules and evaluation](preview-rules.md). Run `mvn -B -ntp -Dtest='Preview*Test' test` from `backend/` for the focused suite. After the frontend production build, `npx playwright test e2e/preview-v2.spec.ts` exercises the four full samples and exports across the configured browser matrix. These are development regressions, not measured general legal accuracy.
+
 Do not run Maven verification and a Maven-started browser-test server against the same `backend/target` directory concurrently. Finish backend checks before starting browser tests.
 
 ## Production-server browser matrix

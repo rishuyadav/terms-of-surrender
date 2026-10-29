@@ -2,16 +2,27 @@ package dev.termsofsurrender.analysis;
 
 import dev.termsofsurrender.documents.Document;
 import java.util.ArrayList;
+import java.util.Comparator;
 import java.util.EnumSet;
+import java.util.HashSet;
 import java.util.List;
-import java.util.regex.Matcher;
+import java.util.Set;
 import java.util.regex.Pattern;
 
-/** A keyword navigator, not a legal assessment or substitute for model analysis. */
+/** Evidence-backed local rules, not a legal assessment or contract-wide interpretation. */
 public class PreviewAnalysisEngine implements AnalysisEngine {
 
     private static final EnumSet<Analysis.Category> ALL_CATEGORIES =
             EnumSet.allOf(Analysis.Category.class);
+    private static final Pattern NO_RESTRICTION =
+            Pattern.compile(
+                    "\\b(?:no|without|not subject to).{0,70}(?:non-compete|non compete|exclusiv|non-solicit)");
+    private static final Pattern NO_CHARGE =
+            Pattern.compile(
+                    "\\b(?:without|no|not owe|not pay).{0,35}(?:additional charge|additional fee|cancellation fee|termination fee|late fee)");
+    private static final Pattern CHANGE = Pattern.compile("change|modif|amend|price|rate");
+    private static final Pattern TIMING =
+            Pattern.compile("\\bdue\\b|\\bwithin\\b|\\bnet[- ]|\\bpayable\\b|acceptance");
 
     private static final List<Rule> RULES =
             List.of(
@@ -20,7 +31,7 @@ public class PreviewAnalysisEngine implements AnalysisEngine {
                             "renewal",
                             "Renewal & cancellation",
                             "Check how renewal works",
-                            "auto(?:matic(?:ally)?)?[- ]renew|renew(?:s|ed)? automatically",
+                            "auto(?:matic(?:ally)?)?[- ]renew|renew(?:s|ed)? automatically|continues? indefinitely|recurring basis",
                             "Check whether renewal is automatic, how notice must be given, and whether exceptions"
                                     + " apply.",
                             "What must I do to prevent renewal, and when must you receive my notice?",
@@ -61,8 +72,7 @@ public class PreviewAnalysisEngine implements AnalysisEngine {
                             "changes",
                             "Changes to terms",
                             "Check who can change the agreement",
-                            "sole discretion|modify (?:these|the) terms|change (?:these|the) terms|without"
-                                    + " (?:prior )?notice",
+                            "(?:modify|change|amend) (?:these|the) terms|(?:change|increase) (?:our |the |your )?(?:price|fees|rate)",
                             "Find out whether changes require notice, consent, or an opportunity to leave the"
                                     + " agreement.",
                             "How will I be notified of changes, and can I leave without a penalty?",
@@ -75,8 +85,7 @@ public class PreviewAnalysisEngine implements AnalysisEngine {
                                     + " rights|perpetual.*licen[cs]e",
                             "Ownership and licensing can affect reuse of your work. Check scope, payment"
                                     + " conditions, pre-existing materials, and exceptions.",
-                            "Which rights transfer, when do they transfer, and can I retain my pre-existing work"
-                                    + " and portfolio rights?",
+                            "Who owns the content, what rights are licensed or transferred, and what purpose and duration limit those rights?",
                             ALL_CATEGORIES),
                     rule(
                             "payment",
@@ -87,7 +96,7 @@ public class PreviewAnalysisEngine implements AnalysisEngine {
                                     + " happens if payment is late.",
                             "What objective event triggers payment, and is there a final date for paying each"
                                     + " invoice?",
-                            ALL_CATEGORIES),
+                            EnumSet.of(Analysis.Category.FREELANCE)),
                     rule(
                             "termination",
                             "Termination",
@@ -100,8 +109,8 @@ public class PreviewAnalysisEngine implements AnalysisEngine {
                     rule(
                             "data",
                             "Data & publicity",
-                            "Review permissions over your data or likeness",
-                            "third[- ]part(?:y|ies)|likeness|marketing purposes|personal (?:data|information)",
+                            "Review data handling and publicity",
+                            "likeness|marketing purposes|personal (?:data|information)|(?:share|sell|disclos|transfer).{0,80}(?:data|information)",
                             "Read the purpose, recipients, duration, and any limitations on the permission. A"
                                     + " reference to third parties does not itself mean data is sold.",
                             "What may be shared or reused, for which purposes, and what choices do I have?",
@@ -110,11 +119,11 @@ public class PreviewAnalysisEngine implements AnalysisEngine {
                             "restriction",
                             "Restrictions on work",
                             "Review restrictions on future work",
-                            "non[- ]compet|exclusiv(?:e|ity)|non[- ]solicit",
+                            "non[- ]compet|non[- ]solicit|\\bexclusiv(?:e|ity).{0,70}(?:services|clients)|(?:shall not|will not|must not).{0,60}(?:competing|competitors)",
                             "Check the activities, time period, and geographic scope covered. This preview cannot"
                                     + " determine whether a restriction is enforceable.",
                             "Can this restriction be narrowed so I can continue working with other clients?",
-                            ALL_CATEGORIES),
+                            EnumSet.of(Analysis.Category.FREELANCE)),
                     // Freelance-specific rules
                     rule(
                             "scope-of-work",
@@ -122,7 +131,7 @@ public class PreviewAnalysisEngine implements AnalysisEngine {
                             "Confirm what work is included",
                             "deliverable|milestone|scope of work|statement of work|as directed|at"
                                     + " (?:our|the client's) discretion",
-                            "Vague scope definitions allow unlimited work expansion. Check what exactly is"
+                            "Scope wording determines what work is included. Check what exactly is"
                                     + " promised, how changes are agreed, and whether additional work requires a new"
                                     + " order.",
                             "Which deliverables are fixed in this agreement, and how must changes to scope be"
@@ -145,7 +154,7 @@ public class PreviewAnalysisEngine implements AnalysisEngine {
                             "Understand what triggers payment",
                             "upon (?:client )?acceptance|acceptance criteria|final approval|sign[- ]off|deemed"
                                     + " accepted",
-                            "Subjective acceptance criteria can delay payment indefinitely. Check what objective"
+                            "Acceptance conditions can affect payment timing. Check what objective"
                                     + " event triggers final acceptance and what happens if the client does not"
                                     + " respond.",
                             "What objective criteria define acceptance, and is there a deadline after which"
@@ -168,7 +177,7 @@ public class PreviewAnalysisEngine implements AnalysisEngine {
                     favorableRule(
                             "opt-out",
                             "Opt-out right",
-                            "Agreement includes an opt-out option",
+                            "This passage offers an opt-out; check its scope",
                             "(?<!(?:not |cannot |waive ))\\b(?:may opt out|right to opt out|opt[- ]out"
                                     + " (?:by|within|at any time)|you (?:may|can) opt out)",
                             "An explicit opt-out is a meaningful protection. Verify the deadline, the required"
@@ -178,7 +187,7 @@ public class PreviewAnalysisEngine implements AnalysisEngine {
                     rule(
                             "notice-of-changes",
                             "Notice before changes",
-                            "Changes require advance notice",
+                            "Review notice for changes",
                             "(?:days?|weeks?|months?) (?:written |advance )?notice|(?:written |advance )?notice"
                                     + " of.*?(?:change|modification|amendment)",
                             "A notice requirement gives you time to review changes and decide whether to stay."
@@ -191,8 +200,7 @@ public class PreviewAnalysisEngine implements AnalysisEngine {
                             "refund-right",
                             "Refund or repayment right",
                             "Agreement includes a refund or repayment provision",
-                            "(?<!non[- ])(?<!not )refund(?:ed|able)\\b|will (?:be )?refunded|prepaid"
-                                    + " amounts.*?refund|unused.*?refund",
+                            "refund(?:ed|able)?\\b|reimburse",
                             "An explicit refund or repayment provision is a meaningful protection. Verify the"
                                     + " trigger, the timeline, and any conditions or exclusions.",
                             "Under what conditions will a refund be issued, and within how many days?",
@@ -201,8 +209,7 @@ public class PreviewAnalysisEngine implements AnalysisEngine {
                             "portfolio",
                             "Portfolio right",
                             "Freelancer may keep a portfolio copy",
-                            "may (?:display|showcase|use|include|show).*?(?:portfolio|work)|portfolio"
-                                    + " rights?|retain.*?portfolio|display.*?in.*?portfolio",
+                            "(?:freelancer|designer|service provider|contractor).{0,30}(?:may|can|retains? the right to).{0,100}portfolio",
                             "A portfolio right lets you show your work to future clients. Confirm any restrictions"
                                     + " on medium, audience, or duration.",
                             "Are there any restrictions on how or where I may display this work in my portfolio?",
@@ -216,7 +223,7 @@ public class PreviewAnalysisEngine implements AnalysisEngine {
 
     @Override
     public String progressStage() {
-        return "Scanning for keywords…";
+        return "Checking clause patterns and consequences…";
     }
 
     @Override
@@ -226,57 +233,105 @@ public class PreviewAnalysisEngine implements AnalysisEngine {
                         ? input.context().category()
                         : Analysis.Category.OTHER;
 
-        List<Analysis.Finding> findings = new ArrayList<>();
-        for (Rule rule : RULES) {
-            if (!rule.applicableCategories().contains(category)) {
+        List<PreviewClause> clauses = PreviewClause.from(input.document());
+        List<RankedFinding> candidates = new ArrayList<>();
+        Set<String> coveredTopics = new HashSet<>();
+        for (var detector : PreviewConsequences.DETECTORS) {
+            if (category != detector.category()) {
                 continue;
             }
-            for (Document.Block block : input.document().blocks()) {
-                Matcher matcher = rule.pattern().matcher(block.text());
-                if (!matcher.find()) {
+            Set<String> seen = new HashSet<>();
+            Set<String> seenBlocks = new HashSet<>();
+            List<RankedFinding> consequences = new ArrayList<>();
+            for (PreviewClause clause : clauses) {
+                if (!detector.matches(clause)
+                        || !seen.add(clause.normalized())
+                        || !seenBlocks.add(clause.block().id())) {
                     continue;
                 }
-                String quote = sentenceAround(block.text(), matcher.start(), matcher.end());
-                validator
-                        .locate(input.document(), block.id(), quote)
-                        .ifPresent(
-                                evidence -> {
-                                    String explanation =
-                                            rule.impact() == Analysis.Impact.FAVORABLE
-                                                    ? "This passage includes a "
-                                                            + rule.category()
-                                                                    .toLowerCase(
-                                                                            java.util.Locale.ROOT)
-                                                            + " provision. Verify the conditions and any exceptions that may"
-                                                            + " limit it."
-                                                    : "This passage mentions "
-                                                            + rule.category()
-                                                                    .toLowerCase(
-                                                                            java.util.Locale.ROOT)
-                                                            + ". Review the exact wording and surrounding sections.";
-                                    findings.add(
-                                            new Analysis.Finding(
-                                                    rule.id(),
-                                                    rule.category(),
-                                                    rule.impact(),
-                                                    rule.title(),
-                                                    explanation,
-                                                    rule.reason(),
-                                                    evidence,
-                                                    rule.question(),
-                                                    List.of()));
-                                });
-                break;
+                var evidence =
+                        validator.locate(
+                                input.document(), clause.block().id(), clause.block().text());
+                if (evidence.isEmpty()) {
+                    continue;
+                }
+                boolean uncertain = detector.uncertain(clause);
+                Analysis.Impact impact = uncertain ? Analysis.Impact.REVIEW : Analysis.Impact.HIGH;
+                String explanation =
+                        "Operative wording: “"
+                                + clause.text()
+                                + "” "
+                                + detector.explanation()
+                                + " The quoted paragraph includes the local wording and exceptions; confirm that it applies to your plan."
+                                + (uncertain
+                                        ? " A cross-reference, separate qualification, or split paragraph needs review, so this has not been classified as high impact."
+                                        : "");
+                Analysis.Finding finding =
+                        new Analysis.Finding(
+                                detector.id() + "-" + evidence.get().start(),
+                                topicLabel(detector.topic()),
+                                impact,
+                                detector.title(),
+                                explanation,
+                                "The practical consequence comes from explicit wording, not from a topic keyword. Conditions and exceptions can change the outcome.",
+                                evidence.get(),
+                                detector.action(),
+                                clause.related());
+                consequences.add(new RankedFinding(finding, detector.priority()));
+                coveredTopics.add(detector.topic());
             }
+            // Scan the entire document before limiting output, so later explicit clauses can win.
+            consequences.sort(
+                    Comparator.comparingInt((RankedFinding c) -> impactOrder(c.finding().impact()))
+                            .thenComparing(
+                                    Comparator.comparingInt(
+                                                    (RankedFinding c) ->
+                                                            c.finding().evidence().quote().length())
+                                            .reversed())
+                            .thenComparingInt(c -> c.finding().evidence().start()));
+            candidates.addAll(consequences.stream().limit(3).toList());
         }
+        for (Rule rule : RULES) {
+            if (!rule.applicableCategories().contains(category)
+                    || coveredTopics.contains(rule.id())) {
+                continue;
+            }
+            // Scan every clause, preferring substantive wording over short introductory mentions.
+            clauses.stream()
+                    .filter(clause -> rule.pattern().matcher(clause.normalized()).find())
+                    .filter(clause -> applicable(rule, clause, category))
+                    .sorted(
+                            Comparator.comparingInt(
+                                            (PreviewClause clause) ->
+                                                    topicSpecificity(rule, clause))
+                                    .reversed())
+                    .map(clause -> topicFinding(input.document(), rule, clause))
+                    .flatMap(java.util.Optional::stream)
+                    .findFirst()
+                    .ifPresent(finding -> candidates.add(new RankedFinding(finding, 10)));
+        }
+        candidates.sort(
+                Comparator.comparingInt(
+                                (RankedFinding candidate) ->
+                                        impactOrder(candidate.finding().impact()))
+                        .thenComparing(Comparator.comparingInt(RankedFinding::priority).reversed())
+                        .thenComparingInt(candidate -> candidate.finding().evidence().start())
+                        .thenComparing(candidate -> candidate.finding().id()));
+        List<Analysis.Finding> findings = candidates.stream().map(RankedFinding::finding).toList();
 
         List<String> limitations = new ArrayList<>();
         limitations.add(
-                "This is an offline keyword-based preview, not AI analysis or legal advice. Matches"
-                        + " identify topics, not adverse or unlawful terms.");
+                "This is an offline rules-based preview, not AI analysis or legal advice. High impact means an explicit potentially consequential condition, not an unlawful or unenforceable term.");
         limitations.add(
-                "The preview does not resolve definitions, exceptions, cross-references, or missing"
-                        + " attachments. No matches does not mean the agreement is safe.");
+                "Only a limited set of local clause patterns is supported. Definitions, distant exceptions, cross-references, and missing attachments are not resolved. No matches does not mean the agreement is safe.");
+        limitations.add(
+                "At most three distinct passages per consequence pattern and one representative passage per other topic are shown. This is not an exhaustive clause inventory.");
+        limitations.add(
+                category == Analysis.Category.CONSUMER
+                        ? "This preview assumes you are the customer or member. Plan-specific and regional provisions are not selected automatically; confirm which passages apply to you."
+                        : category == Analysis.Category.FREELANCE
+                                ? "This preview assumes you are the freelancer or service provider, not the client. Plan-specific and regional applicability is not determined."
+                                : "Your reviewing role is unspecified. Only neutral topic navigation is provided; consequence classification requires consumer or freelance context.");
         limitations.add(
                 "Only the supplied text was inspected. Any unreadable pages, external policies, and omitted"
                         + " sections are outside this review.");
@@ -307,21 +362,29 @@ public class PreviewAnalysisEngine implements AnalysisEngine {
             if (checklist.size() >= 3) {
                 break;
             }
-            if (f.impact() == Analysis.Impact.HIGH) {
+            if (f.impact() != Analysis.Impact.FAVORABLE) {
                 checklist.add(
                         new Analysis.ChecklistItem(
-                                Analysis.ChecklistAction.ASK, f.suggestedQuestion()));
+                                f.id().startsWith("renewal-deadline")
+                                                || f.id().startsWith("trial-conversion")
+                                        ? Analysis.ChecklistAction.VERIFY
+                                        : f.id().startsWith("ip-before-payment")
+                                                ? Analysis.ChecklistAction.CONSIDER
+                                                : Analysis.ChecklistAction.ASK,
+                                f.suggestedQuestion()));
             }
         }
 
         return new Analysis.Report(
                 Analysis.Mode.RULE_BASED_PREVIEW,
-                "preview-1",
+                "preview-2",
                 List.copyOf(findings),
                 List.copyOf(limitations),
                 false,
                 JurisdictionContext.label(input.context()),
-                null,
+                "Rules inspect explicit local conditions, not the whole legal effect of the agreement. "
+                        + findings.stream().filter(f -> f.impact() == Analysis.Impact.HIGH).count()
+                        + " potentially high-impact passages identified. Zero does not establish safety.",
                 List.copyOf(priorities),
                 List.copyOf(checklist));
     }
@@ -364,29 +427,83 @@ public class PreviewAnalysisEngine implements AnalysisEngine {
                 applicableCategories);
     }
 
-    private String sentenceAround(String text, int matchStart, int matchEnd) {
-        int start = matchStart;
-        while (start > 0 && ".!?;\n".indexOf(text.charAt(start - 1)) < 0) {
-            start--;
-        }
-        int end = matchEnd;
-        while (end < text.length() && ".!?;\n".indexOf(text.charAt(end)) < 0) {
-            end++;
-        }
-        if (end < text.length()) {
-            end++;
-        }
-        String sentence = text.substring(start, end).strip();
-        if (sentence.length() < 20) {
-            int expandedStart = Math.max(0, matchStart - 200);
-            int expandedEnd = Math.min(text.length(), matchEnd + 200);
-            sentence = text.substring(expandedStart, expandedEnd).strip();
-            if (sentence.length() > 400) {
-                sentence = sentence.substring(0, 400).strip();
-            }
-        }
-        return sentence;
+    private java.util.Optional<Analysis.Finding> topicFinding(
+            Document document, Rule rule, PreviewClause clause) {
+        return validator
+                .locate(document, clause.block().id(), clause.block().text())
+                .map(
+                        evidence ->
+                                new Analysis.Finding(
+                                        rule.id(),
+                                        rule.category(),
+                                        rule.impact(),
+                                        rule.title(),
+                                        rule.impact() == Analysis.Impact.FAVORABLE
+                                                ? "Operative wording: “"
+                                                        + clause.text()
+                                                        + "” This option is limited to the subject of that sentence. Check its recipient, conditions, and exceptions; it may not apply to other topics."
+                                                : "This passage mentions "
+                                                        + rule.category()
+                                                                .toLowerCase(java.util.Locale.ROOT)
+                                                        + ". A topic match does not establish an adverse consequence. Review the quoted wording.",
+                                        rule.reason(),
+                                        evidence,
+                                        rule.question(),
+                                        clause.related()));
     }
+
+    private static boolean applicable(Rule rule, PreviewClause clause, Analysis.Category category) {
+        String text = clause.normalized();
+        if (rule.impact() == Analysis.Impact.FAVORABLE
+                && (category == Analysis.Category.OTHER
+                        || clause.fragmented()
+                        || !clause.related().isEmpty())) {
+            return false;
+        }
+        return switch (rule.id()) {
+            case "restriction" ->
+                    !text.contains("non-exclusive")
+                            && !text.contains("non exclusive")
+                            && !NO_RESTRICTION.matcher(text).find();
+            case "fees" -> !NO_CHARGE.matcher(text).find();
+            case "data" ->
+                    !text.contains("must not disclose")
+                            && !text.contains("shall not disclose")
+                            && !text.contains("may not disclose");
+            case "notice-of-changes" ->
+                    CHANGE.matcher(text).find() && !text.contains("without notice");
+            case "refund-right" -> PreviewProtections.refund(text, category);
+            case "opt-out" -> PreviewProtections.optOut(text);
+            case "portfolio" -> !PreviewProtections.negated(text) && clause.related().isEmpty();
+            default -> true;
+        };
+    }
+
+    private static int topicSpecificity(Rule rule, PreviewClause clause) {
+        int score = Math.min(clause.text().length(), 300);
+        if (rule.id().equals("payment") && TIMING.matcher(clause.normalized()).find()) {
+            score += 1000;
+        }
+        return score;
+    }
+
+    private static int impactOrder(Analysis.Impact impact) {
+        return switch (impact) {
+            case HIGH -> 0;
+            case REVIEW -> 1;
+            case FAVORABLE -> 2;
+        };
+    }
+
+    private static String topicLabel(String topic) {
+        return RULES.stream()
+                .filter(rule -> rule.id().equals(topic))
+                .findFirst()
+                .orElseThrow()
+                .category();
+    }
+
+    private record RankedFinding(Analysis.Finding finding, int priority) {}
 
     private record Rule(
             String id,

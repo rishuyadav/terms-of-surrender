@@ -36,4 +36,18 @@ describe("FindingCard", () => {
     expect(write).toHaveBeenCalledWith(finding.suggestedQuestion);
     expect(screen.getByRole("button", { name: "Copied" })).toBeVisible();
   });
+
+  it("labels an actionable consequence without pretending it is a question", async () => {
+    const user = userEvent.setup();
+    const action = {
+      ...finding,
+      impact: "HIGH" as const,
+      suggestedQuestion: "Verify the cancellation deadline and keep confirmation of receipt.",
+    };
+    render(<FindingCard finding={action} index={0} selected={false} onSelect={vi.fn()} />);
+    expect(screen.getByText("High impact")).toBeVisible();
+    await user.click(screen.getByText("Before you agree"));
+    await user.click(screen.getByRole("button", { name: "Copy action" }));
+    expect(screen.getByRole("button", { name: "Copied" })).toBeVisible();
+  });
 });

@@ -84,7 +84,7 @@ class ModelAnalysisEngineTest {
                                                 config, mapper, new EvidenceValidator(), client)
                                         .analyze(input))
                 .isInstanceOf(IllegalStateException.class)
-                .hasMessage("Model response incomplete");
+                .hasMessage("Model response incomplete: finish_reason=length");
         assertThatThrownBy(
                         () ->
                                 new ModelAnalysisEngine(

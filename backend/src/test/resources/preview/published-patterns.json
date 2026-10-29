@@ -1,0 +1,77 @@
+{
+  "description": "Original paraphrases inspired by public terms, reviewed 2026-10-29. Development regression cases, NOT a held-out benchmark or legal labels. No live network calls. Sources may change.",
+  "cases": [
+    {
+      "name": "Adobe-like annual commitment cancellation formula",
+      "source": "https://www.adobe.com/cc-shared/fragments/legal/subscription/full-content",
+      "text": "If you cancel your annual plan after fourteen days, you will be charged a lump sum equal to 50% of the remaining commitment, with access continuing to the end of the billing month.",
+      "high": ["cancellation-cost"]
+    },
+    {
+      "name": "Adobe-like prepaid plan without cancellation charge",
+      "source": "https://www.adobe.com/cc-shared/fragments/legal/subscription/full-content",
+      "text": "You may cancel your prepaid annual subscription in your account. After fourteen days, payments are non-refundable and access continues until the contracted term ends.",
+      "high": []
+    },
+    {
+      "name": "Adobe-like regional cancellation exception",
+      "source": "https://www.adobe.com/cc-shared/fragments/legal/subscription/full-content",
+      "text": "For customers in California, if you cancel after fourteen days, you will be charged a lump sum equal to 30% of your annual commitment.",
+      "high": []
+    },
+    {
+      "name": "Spotify-like continuing recurring subscription",
+      "source": "https://www.spotify.com/us/legal/paid-subscription-terms/",
+      "text": "Paid subscriptions continue indefinitely until cancelled and are billed on a recurring basis. Cancellation takes effect at the end of the current billing period.",
+      "high": []
+    },
+    {
+      "name": "Spotify-like trial conversion",
+      "source": "https://www.spotify.com/us/legal/paid-subscription-terms/",
+      "text": "Unless you cancel before the trial period ends, you automatically become a subscriber to the paid subscription and the payment method you supplied will be charged the current recurring price.",
+      "high": ["trial-conversion"]
+    },
+    {
+      "name": "Spotify-like third-party billing route is not a fee",
+      "source": "https://www.spotify.com/us/legal/paid-subscription-terms/",
+      "text": "If you obtained your trial through a third party, cancel the relevant subscription through that third party before the trial ends to avoid a charge.",
+      "high": []
+    },
+    {
+      "name": "Zoho-like advance renewal cancellation",
+      "source": "https://www.zoho.com/terms.html",
+      "text": "Your subscription automatically renews at the end of each period unless you cancel or notify us at least seven days before the renewal date.",
+      "high": ["renewal-deadline"]
+    },
+    {
+      "name": "Zoho-like expressly service-limited content permission",
+      "source": "https://www.zoho.com/terms.html",
+      "text": "You retain ownership of stored content and grant permission to copy, store and transmit it solely as needed to provide the service. This does not authorize commercial marketing use of private content.",
+      "high": []
+    },
+    {
+      "name": "Zoho-like export condition remains a review topic in v2",
+      "source": "https://www.zoho.com/terms.html",
+      "text": "Data entered during the free trial may be permanently lost unless you purchase a subscription or export it before the trial ends. No payment is collected automatically.",
+      "high": []
+    },
+    {
+      "name": "WordPress-like annual cancellation deadline",
+      "source": "https://automattic.com/tos/",
+      "text": "Annual subscriptions automatically renew at the current price unless you cancel at least one month before the scheduled end date. You may manage renewal in account settings.",
+      "high": ["renewal-deadline"]
+    },
+    {
+      "name": "WordPress-like non-exclusive content license is not an employment restriction",
+      "source": "https://automattic.com/tos/",
+      "text": "You grant a worldwide, royalty-free, non-exclusive license to reproduce and display content for providing and improving the service and promoting your public website.",
+      "high": []
+    },
+    {
+      "name": "WordPress-like no general refund promise",
+      "source": "https://automattic.com/tos/",
+      "text": "Some paid services have a separate refund policy, and refunds will be provided where required by law. Otherwise there are no refunds and payments are final.",
+      "high": []
+    }
+  ]
+}

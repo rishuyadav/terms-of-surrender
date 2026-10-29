@@ -986,6 +986,27 @@ svg {
   box-decoration-break: clone;
   -webkit-box-decoration-break: clone;
 }
+.other-topics {
+  margin-top: 1rem;
+  border-top: 1px solid var(--line);
+  padding-top: 1rem;
+}
+
+.other-topics > summary {
+  cursor: pointer;
+  font-weight: 600;
+  padding: 0.5rem 0;
+}
+
+.other-topics > p {
+  margin: 0.5rem 0 1rem;
+  font-size: 0.875rem;
+}
+
+.other-topics .finding-card + .finding-card {
+  margin-top: 1rem;
+}
+
 /* Worth reviewing — amber/yellow (default) */
 .source-highlight.review {
   background: #f5eacb;
@@ -1998,7 +2019,7 @@ summary::-webkit-details-marker {
 }
 [data-theme="dark"] .checklist-note {
   border-color: #2a3828;
-  color: #7a9070;
+  color: var(--muted);
 }
 [data-theme="dark"] .checklist-text {
   color: #b0b8a8;
@@ -2819,7 +2840,7 @@ summary::-webkit-details-marker {
   font-size: 9px;
   font-weight: 600;
   letter-spacing: 0.04em;
-  color: #8a8e7c;
+  color: var(--muted);
 }
 .analyze-another {
   display: flex;
@@ -3143,7 +3164,7 @@ summary::-webkit-details-marker {
 }
 .checklist-note {
   font-size: 10px;
-  color: #7a8870;
+  color: var(--muted);
   padding: 8px 20px 12px;
   margin: 0;
   border-top: 1px solid #d8e8d8;
