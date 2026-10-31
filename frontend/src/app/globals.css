@@ -187,7 +187,7 @@ a {
  * rather than CSS tokens. Token-based colours are handled more efficiently
  * by the :root transition above. ease-out commits the colour immediately
  * and settles gracefully — feels snappier than the default ease curve.
- * The prefers-reduced-motion block at the bottom overrides to near-zero.
+ * The prefers-reduced-motion block at the bottom disables these transitions.
  */
 *,
 *::before,
@@ -3712,13 +3712,13 @@ summary::-webkit-details-marker {
     scroll-behavior: auto;
   }
   :root {
-    transition-duration: 0.01ms !important;
+    transition: none !important;
   }
   *,
   *::before,
   *::after {
     animation-duration: 0.01ms !important;
     animation-iteration-count: 1 !important;
-    transition-duration: 0.01ms !important;
+    transition: none !important;
   }
 }

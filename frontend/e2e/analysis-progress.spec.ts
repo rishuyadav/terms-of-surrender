@@ -64,11 +64,17 @@ test("early findings remain usable through updates, refresh, and completion", as
   ).toHaveCount(0);
   expect((await new AxeBuilder({ page }).analyze()).violations).toEqual([]);
   await page.emulateMedia({ reducedMotion: "reduce" });
+  await expect(page.locator("html")).toHaveCSS("transition-property", "none");
+  await expect(page.locator(".finding-card h3")).toHaveCSS("transition-property", "none");
   await page.getByRole("button", { name: "Switch to dark mode" }).click();
   await expect(page.locator("html")).toHaveAttribute("data-theme", "dark");
   await expect
     .poll(() => page.evaluate(() => getComputedStyle(document.body).backgroundColor))
     .toBe("rgb(26, 25, 22)");
+  // The background can settle before descendant text in WebKit; check both before axe.
+  for (const selector of [".brand-second", ".report-title-row h1", "#finding-title-finding-1"]) {
+    await expect(page.locator(selector)).toHaveCSS("color", "rgb(237, 234, 222)");
+  }
   expect((await new AxeBuilder({ page }).analyze()).violations).toEqual([]);
 
   await page.getByRole("button", { name: "Read the source while we review" }).click();
