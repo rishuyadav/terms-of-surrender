@@ -5,19 +5,71 @@
  * that references these variables, without animating each element
  * individually.
  */
-@property --paper      { syntax: "<color>"; inherits: true; initial-value: #f8f7f3; }
-@property --surface    { syntax: "<color>"; inherits: true; initial-value: #fffefa; }
-@property --ink        { syntax: "<color>"; inherits: true; initial-value: #252822; }
-@property --muted      { syntax: "<color>"; inherits: true; initial-value: #616958; }
-@property --line       { syntax: "<color>"; inherits: true; initial-value: #e3e3da; }
-@property --accent     { syntax: "<color>"; inherits: true; initial-value: #6d293b; }
-@property --accent-hover { syntax: "<color>"; inherits: true; initial-value: #542030; }
-@property --sage       { syntax: "<color>"; inherits: true; initial-value: #e9ede2; }
-@property --green      { syntax: "<color>"; inherits: true; initial-value: #416047; }
-@property --amber      { syntax: "<color>"; inherits: true; initial-value: #8b641c; }
-@property --amber-bg   { syntax: "<color>"; inherits: true; initial-value: #f8f0dc; }
-@property --red        { syntax: "<color>"; inherits: true; initial-value: #9b3d37; }
-@property --red-bg     { syntax: "<color>"; inherits: true; initial-value: #f8e9e5; }
+@property --paper {
+  syntax: "<color>";
+  inherits: true;
+  initial-value: #f8f7f3;
+}
+@property --surface {
+  syntax: "<color>";
+  inherits: true;
+  initial-value: #fffefa;
+}
+@property --ink {
+  syntax: "<color>";
+  inherits: true;
+  initial-value: #252822;
+}
+@property --muted {
+  syntax: "<color>";
+  inherits: true;
+  initial-value: #616958;
+}
+@property --line {
+  syntax: "<color>";
+  inherits: true;
+  initial-value: #e3e3da;
+}
+@property --accent {
+  syntax: "<color>";
+  inherits: true;
+  initial-value: #6d293b;
+}
+@property --accent-hover {
+  syntax: "<color>";
+  inherits: true;
+  initial-value: #542030;
+}
+@property --sage {
+  syntax: "<color>";
+  inherits: true;
+  initial-value: #e9ede2;
+}
+@property --green {
+  syntax: "<color>";
+  inherits: true;
+  initial-value: #416047;
+}
+@property --amber {
+  syntax: "<color>";
+  inherits: true;
+  initial-value: #8b641c;
+}
+@property --amber-bg {
+  syntax: "<color>";
+  inherits: true;
+  initial-value: #f8f0dc;
+}
+@property --red {
+  syntax: "<color>";
+  inherits: true;
+  initial-value: #9b3d37;
+}
+@property --red-bg {
+  syntax: "<color>";
+  inherits: true;
+  initial-value: #f8e9e5;
+}
 
 :root {
   --paper: #f8f7f3;
@@ -140,7 +192,8 @@ a {
 *,
 *::before,
 *::after {
-  transition-property: background-color, color, border-color, box-shadow, fill, stroke, outline-color;
+  transition-property:
+    background-color, color, border-color, box-shadow, fill, stroke, outline-color;
   transition-duration: 0.28s;
   transition-timing-function: ease-out;
 }
@@ -1459,8 +1512,12 @@ summary::-webkit-details-marker {
   animation: review-travel 2.5s ease-in-out infinite alternate;
 }
 @keyframes review-travel {
-  from { transform: translateX(0); }
-  to { transform: translateX(258%); }
+  from {
+    transform: translateX(0);
+  }
+  to {
+    transform: translateX(258%);
+  }
 }
 .analysis-progress-footer {
   display: flex;
@@ -1478,7 +1535,9 @@ summary::-webkit-details-marker {
   line-height: 1.6;
   color: var(--muted);
 }
-.analysis-progress-footer p svg { flex-shrink: 0; }
+.analysis-progress-footer p svg {
+  flex-shrink: 0;
+}
 .analysis-progress-footer .text-button {
   flex-shrink: 0;
   font-size: 11px;
@@ -1499,22 +1558,60 @@ summary::-webkit-details-marker {
   font-size: 11px;
   line-height: 1.7;
 }
-.partial-findings-notice svg { flex-shrink: 0; margin-top: 2px; color: var(--green); }
-.partial-findings-notice p { margin: 0; }
-.partial-findings-notice strong { color: var(--ink); }
-.no-findings > .text-button { margin-top: 12px; color: var(--green); }
+.partial-findings-notice svg {
+  flex-shrink: 0;
+  margin-top: 2px;
+  color: var(--green);
+}
+.partial-findings-notice p {
+  margin: 0;
+}
+.partial-findings-notice strong {
+  color: var(--ink);
+}
+.no-findings > .text-button {
+  margin-top: 12px;
+  color: var(--green);
+}
 @media (max-width: 700px) {
-  .analysis-progress { padding: 22px 18px 18px; }
-  .analysis-progress-heading { flex-wrap: wrap; gap: 12px; }
-  .analysis-progress-heading > div:nth-child(2) { flex: 1; }
-  .analysis-progress-count { margin-left: 58px; }
-  .analysis-progress-detail { flex-direction: column; gap: 4px; margin-top: 18px; }
-  .analysis-progress-footer { flex-direction: column; align-items: flex-start; gap: 10px; }
-  .analysis-progress-footer p { display: block; }
-  .analysis-progress-footer p svg { vertical-align: middle; }
-  .live-findings .pane-header { gap: 10px; }
-  .live-findings .pane-header > span { margin-left: auto; }
-  .live-findings .pane-header .copy-all-btn { display: none; }
+  .analysis-progress {
+    padding: 22px 18px 18px;
+  }
+  .analysis-progress-heading {
+    flex-wrap: wrap;
+    gap: 12px;
+  }
+  .analysis-progress-heading > div:nth-child(2) {
+    flex: 1;
+  }
+  .analysis-progress-count {
+    margin-left: 58px;
+  }
+  .analysis-progress-detail {
+    flex-direction: column;
+    gap: 4px;
+    margin-top: 18px;
+  }
+  .analysis-progress-footer {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 10px;
+  }
+  .analysis-progress-footer p {
+    display: block;
+  }
+  .analysis-progress-footer p svg {
+    vertical-align: middle;
+  }
+  .live-findings .pane-header {
+    gap: 10px;
+  }
+  .live-findings .pane-header > span {
+    margin-left: auto;
+  }
+  .live-findings .pane-header .copy-all-btn {
+    display: none;
+  }
 }
 .processing-card {
   text-align: center;
@@ -1563,11 +1660,21 @@ summary::-webkit-details-marker {
   animation: stage-dots 1.4s steps(4, end) infinite;
 }
 @keyframes stage-dots {
-  0%   { content: ""; }
-  25%  { content: "."; }
-  50%  { content: ".."; }
-  75%  { content: "..."; }
-  100% { content: ""; }
+  0% {
+    content: "";
+  }
+  25% {
+    content: ".";
+  }
+  50% {
+    content: "..";
+  }
+  75% {
+    content: "...";
+  }
+  100% {
+    content: "";
+  }
 }
 .processing-card .processing-hint {
   font-size: 11px;
@@ -1679,7 +1786,9 @@ summary::-webkit-details-marker {
   background: #d9dcd1;
   border: 1px solid #c4c8bc;
   padding: 2px;
-  transition: background-color 0.22s ease, border-color 0.22s ease;
+  transition:
+    background-color 0.22s ease,
+    border-color 0.22s ease;
 }
 [data-theme="dark"] .theme-toggle-track {
   background: #4a3040;
@@ -1693,7 +1802,9 @@ summary::-webkit-details-marker {
   background: #fff;
   box-shadow: 0 1px 3px rgba(0, 0, 0, 0.18);
   transform: translateX(0);
-  transition: transform 0.22s ease, background-color 0.22s ease;
+  transition:
+    transform 0.22s ease,
+    background-color 0.22s ease;
   display: grid;
   place-items: center;
   overflow: hidden;
@@ -1704,7 +1815,9 @@ summary::-webkit-details-marker {
 }
 .theme-toggle-icon {
   position: absolute;
-  transition: opacity 0.18s ease, transform 0.18s ease;
+  transition:
+    opacity 0.18s ease,
+    transform 0.18s ease;
 }
 .theme-toggle-icon--sun {
   color: #8b7a2a;
@@ -1774,7 +1887,9 @@ summary::-webkit-details-marker {
 /* Intake card */
 [data-theme="dark"] .intake-card {
   border-color: #3a3a32;
-  box-shadow: 0 10px 34px #00000030, 0 2px 4px #00000020;
+  box-shadow:
+    0 10px 34px #00000030,
+    0 2px 4px #00000020;
 }
 [data-theme="dark"] .intake-card-header {
   background: #1e1e1a;
@@ -2984,15 +3099,21 @@ summary::-webkit-details-marker {
   list-style: none;
   user-select: none;
 }
-.context-section summary::-webkit-details-marker { display: none; }
+.context-section summary::-webkit-details-marker {
+  display: none;
+}
 .context-section summary::before {
   content: "▸";
   font-size: 9px;
   color: #aaa898;
   transition: transform 0.15s;
 }
-.context-section[open] summary::before { content: "▾"; }
-.context-section[open] summary { margin-bottom: 12px; }
+.context-section[open] summary::before {
+  content: "▾";
+}
+.context-section[open] summary {
+  margin-bottom: 12px;
+}
 .context-summary-pill {
   background: var(--line);
   border-radius: 8px;
@@ -3006,7 +3127,7 @@ summary::-webkit-details-marker {
   margin-left: auto;
   font-size: 9px;
   font-weight: 400;
-  color: #9a9e8c;
+  color: #6a7060;
 }
 
 /* Provider notice */

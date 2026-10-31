@@ -62,16 +62,19 @@ test("DOCX import shows evidence, extraction warnings, and honest source referen
     buffer: docxFixture(),
   });
   await page.getByRole("button", { name: "Read the fine print" }).click();
-  await expect(page.getByRole("heading", { name: "Check how renewal works" })).toBeVisible({
+  await expect(
+    page.getByRole("heading", { name: "Renewal has an advance cancellation deadline" }),
+  ).toBeVisible({
     timeout: 20000,
   });
   await expect(page.getByText(/DOCX import reads body paragraphs and tables/)).toBeVisible();
   await expect(page.getByText(/DOCX has no reliable page mapping/)).toBeVisible();
-  await page.locator(".finding-card").first().locator(".evidence-details > summary").click();
-  await expect(
-    page.locator(".finding-card").first().getByText("· extracted text", { exact: true }),
-  ).toBeVisible();
-  await page.getByRole("button", { name: "Show in document" }).first().click();
+  const renewal = page.getByRole("article", {
+    name: "Renewal has an advance cancellation deadline",
+  });
+  await renewal.locator(".evidence-details:not(.evidence-context) > summary").click();
+  await expect(renewal.getByText("· Word document", { exact: true })).toBeVisible();
+  await renewal.getByRole("button", { name: "Show in document" }).click();
   await expect(page.locator(".source-highlight.active").first()).toContainText(
     "renews automatically",
   );
@@ -86,6 +89,7 @@ test("DOCX tracked changes are rejected and can be replaced without losing conte
   page,
 }) => {
   await page.goto("/");
+  await page.locator(".context-section > summary").click();
   await page.getByLabel("Your location").selectOption("INDIA");
   await page.getByLabel("Agreement type").selectOption("FREELANCE");
   await page.getByRole("button", { name: "Upload PDF / DOCX", exact: true }).click();
@@ -106,7 +110,8 @@ test("DOCX tracked changes are rejected and can be replaced without losing conte
     buffer: docxFixture(),
   });
   await page.getByRole("button", { name: "Read the fine print" }).click();
-  await expect(page.getByRole("heading", { name: "Check how renewal works" })).toBeVisible({
+  await expect(page.getByText("Keyword preview, not an AI or legal assessment.")).toBeVisible({
     timeout: 20000,
   });
+  await expect(page.getByText("India · Freelance agreement · Word document")).toBeVisible();
 });

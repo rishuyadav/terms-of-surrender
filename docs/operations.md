@@ -16,10 +16,42 @@
 | `MODEL_BASE_URL`    | `https://api.openai.com/v1`         | HTTPS OpenAI-compatible API base                           |
 | `MODEL_API_KEY`     | empty                               | Server-side provider credential                            |
 | `MODEL_NAME`        | empty                               | Required when model mode is enabled                        |
+| `AI_DEMO_ENABLED` | `false` | Enable persistent lifetime IP quotas; required for the protected public AI demo |
+| `AI_DEMO_PROXY_SECRET` | empty | Stable 32+ character shared server-only Vercel/Render secret |
+| `AI_DEMO_ANALYSES_PER_IP` | `5` | Lifetime AI analysis allowance |
+| `AI_DEMO_QUESTIONS_PER_IP` | `8` | Independent lifetime AI question allowance |
+| `AI_DEMO_MAX_CHARACTERS` | `30000` | Larger documents use full-text keyword preview without spending a credit |
+| `AI_DEMO_MAX_COMPLETION_TOKENS` | `4000` | Maximum completion tokens per AI analysis text-group request (800–8000) |
 | `API_BASE_URL`      | `http://localhost:8081`             | Frontend build-time proxy destination                      |
 | `WEB_PORT`          | `3000`                              | Compose loopback frontend port                             |
 
 Spring Boot reads exported environment variables, not the root `.env` file automatically. Docker Compose reads root `.env`. Next.js can read `frontend/.env.local`; never put a model key in a `NEXT_PUBLIC_` variable.
+
+## Public AI demo: Vercel → Render
+
+### Deployment order
+
+1. Back up the persistent PostgreSQL database. Deploy the backend migration/code with `MODEL_ENABLED=false` and `AI_DEMO_ENABLED=true`.
+2. Generate a strong random secret, for example `openssl rand -hex 32`. Set `AI_DEMO_PROXY_SECRET` to the **same value** in Render and Vercel's **Production** server-side environment. Never commit it or expose it with `NEXT_PUBLIC_`. Keep it stable: changing it creates new quota identities and resets allowances in practice.
+3. On Render set `ALLOWED_ORIGINS=https://terms-of-surrender.vercel.app`, `SECURE_COOKIES=true`, and confirm the JDBC PostgreSQL settings. Defaults are five analyses and eight questions; neither resets automatically.
+4. On Vercel set `API_BASE_URL=https://terms-of-surrender.onrender.com` and redeploy the frontend. Vercel supplies `VERCEL=1` and its ingress-overwritten `x-vercel-forwarded-for` client IP; our Next.js Proxy signs that identity and strips incoming forged `x-tos-visitor-*` headers. Do not manually set `VERCEL=1` on an untrusted non-Vercel public server.
+5. Verify text, PDF/DOCX, session cookies and SSE through the Vercel URL. Proxy keeps the existing external rewrite instead of introducing a Function Route Handler for uploads; its body clone is bounded at 12 MB. Confirm actual Vercel plan/ingress limits with a near-10-MB test upload before release.
+6. Configure `MODEL_BASE_URL`, `MODEL_NAME`, and `MODEL_API_KEY` **only on Render**, then enable `MODEL_ENABLED=true`. Verify a small synthetic document gets AI mode through Vercel and an unsigned direct Render submission gets `VISITOR_UNVERIFIED` preview, never a paid call. Do not disable `AI_DEMO_ENABLED` while the public provider is enabled.
+7. Test the boundary in a separate staging database (or dedicated test network): the fifth analysis uses AI and the sixth uses preview; the eighth question calls AI and the ninth returns `FREE_QUESTIONS_EXHAUSTED`. Refreshing, new browser sessions, report deletion after provider start and redeploys must not reset usage. Keep production/staging database and provider secrets isolated.
+
+`MODEL_ENABLED=false` is the emergency spending kill switch. Pending AI jobs then use clearly labeled `AI_DISABLED` preview, releasing reservations if provider work never started. Do not roll back to old application code with the model enabled: old workers do not enforce these quotas. The additive V3 migration need not be rolled back.
+
+### Accounting and privacy
+
+- PostgreSQL's existing admission guard serializes quota reservation, job creation and question admission across replicas. Store the selected mode with each queued job; a later request cannot change that decision.
+- Invalid input, parsing failures, oversize demo documents and unsigned requests do not consume AI credits. Accepted AI jobs reserve a credit. Deletion/expiry before provider work starts releases it; once the worker starts model work, provider failures/timeouts still consume it. No automatic paid retries. Individual provider failures produce an explicitly labeled, full-text preview with partial AI findings cleared.
+- Q&A uses an independent pool. Abstentions and failed provider attempts consume a question credit. One in-flight question per network is allowed within the bounded provider deadline. Browser retries reuse an idempotency key; duplicate analyses return the existing private job and duplicate questions return their cached response, never another paid call.
+- No remaining balances are exposed in the public session API or displayed in the UI. Q&A controls remain interactive after exhaustion and on preview reports when the deployment has AI configured. Preview reports cannot trigger paid Q&A; they return `QA_REQUIRES_AI_REPORT` (or `FREE_QUESTIONS_EXHAUSTED` when applicable). Existing AI reports keep their remaining independent Q&A access.
+- IPv4 addresses are canonicalized; IPv6 addresses are grouped by `/64`. A keyed HMAC of that network is persisted, not the raw IP. `ai_demo_visitors` counters intentionally outlive the 24-hour document retention. HMACs are pseudonymous data and need corresponding privacy-policy wording. Shared networks share allowances, and VPNs/new networks can bypass per-network limits.
+- `ai_demo_requests` contains request hashes, reservations and cached Q&A content; delete it with the associated report and purge it on expiry. Replay nonces expire in two minutes. Quota counters contain no report or question content and are not deleted by report cleanup. Hosting ingress logs/providers/backups have their own retention: avoid recording IP attestation headers or contract text in application logs.
+- Per-IP quotas are **not a global spending guarantee**. A monetary cap is intentionally deferred. Bound document size and completion tokens, monitor provider usage, and use provider-enforced hard caps if available; budget-alert settings alone may not stop charges. Tune the default 4,000-token completion limit against synthetic samples; truncated/invalid provider output falls back explicitly instead of presenting an incomplete AI report.
+
+The shipped signing path is specific to Vercel. Local/Compose AI remains unrestricted with `AI_DEMO_ENABLED=false`. Enabling demo quotas without a verified proxy identity fails closed to preview rather than trusting arbitrary forwarded-IP headers.
 
 ## Persistence and limits
 

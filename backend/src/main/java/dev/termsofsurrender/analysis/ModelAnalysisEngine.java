@@ -23,7 +23,7 @@ import java.util.function.Consumer;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
-/** OpenAI-compatible adapter. Provider failures never silently downgrade to preview mode. */
+/** OpenAI-compatible adapter; the worker explicitly labels any preview fallback. */
 public class ModelAnalysisEngine implements AnalysisEngine, AutoCloseable {
     private static final int MAX_RESPONSE_BYTES = 524_288;
     private static final String CORE_INSTRUCTIONS =
@@ -58,9 +58,18 @@ public class ModelAnalysisEngine implements AnalysisEngine, AutoCloseable {
     private final ObjectMapper mapper;
     private final EvidenceValidator validator;
     private final HttpClient client;
+    private final int maxCompletionTokens;
 
     public ModelAnalysisEngine(
             AppProperties.Model config, ObjectMapper mapper, EvidenceValidator validator) {
+        this(config, mapper, validator, 8000);
+    }
+
+    public ModelAnalysisEngine(
+            AppProperties.Model config,
+            ObjectMapper mapper,
+            EvidenceValidator validator,
+            int maxCompletionTokens) {
         this(
                 config,
                 mapper,
@@ -68,7 +77,8 @@ public class ModelAnalysisEngine implements AnalysisEngine, AutoCloseable {
                 HttpClient.newBuilder()
                         .connectTimeout(Duration.ofSeconds(10))
                         .followRedirects(HttpClient.Redirect.NEVER)
-                        .build());
+                        .build(),
+                maxCompletionTokens);
     }
 
     ModelAnalysisEngine(
@@ -76,6 +86,15 @@ public class ModelAnalysisEngine implements AnalysisEngine, AutoCloseable {
             ObjectMapper mapper,
             EvidenceValidator validator,
             HttpClient client) {
+        this(config, mapper, validator, client, 8000);
+    }
+
+    private ModelAnalysisEngine(
+            AppProperties.Model config,
+            ObjectMapper mapper,
+            EvidenceValidator validator,
+            HttpClient client,
+            int maxCompletionTokens) {
         if (config.apiKey() == null
                 || config.apiKey().isBlank()
                 || config.name() == null
@@ -95,6 +114,7 @@ public class ModelAnalysisEngine implements AnalysisEngine, AutoCloseable {
         this.mapper = mapper;
         this.validator = validator;
         this.client = client;
+        this.maxCompletionTokens = maxCompletionTokens;
     }
 
     @Override
@@ -373,7 +393,7 @@ public class ModelAnalysisEngine implements AnalysisEngine, AutoCloseable {
                                     "model",
                                     config.name(),
                                     "max_completion_tokens",
-                                    8000,
+                                    maxCompletionTokens,
                                     "response_format",
                                     Map.of("type", "json_object"),
                                     "messages",
@@ -438,7 +458,12 @@ public class ModelAnalysisEngine implements AnalysisEngine, AutoCloseable {
         return value;
     }
 
-    private List<List<Document.Block>> chunks(List<Document.Block> blocks) {
+    /** Reject over-budget documents before reserving credit. */
+    public static boolean withinRequestBudget(Document document) {
+        return chunks(document.blocks()).size() <= 12;
+    }
+
+    private static List<List<Document.Block>> chunks(List<Document.Block> blocks) {
         List<List<Document.Block>> chunks = new ArrayList<>();
         List<Document.Block> current = new ArrayList<>();
         int length = 0;

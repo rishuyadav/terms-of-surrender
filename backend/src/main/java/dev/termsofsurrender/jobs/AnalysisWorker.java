@@ -3,6 +3,8 @@ package dev.termsofsurrender.jobs;
 import dev.termsofsurrender.AppProperties;
 import dev.termsofsurrender.analysis.Analysis;
 import dev.termsofsurrender.analysis.AnalysisEngine;
+import dev.termsofsurrender.analysis.PreviewAnalysisEngine;
+import dev.termsofsurrender.privacy.AiDemoQuota;
 import java.util.UUID;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -15,12 +17,20 @@ public class AnalysisWorker {
     private final AnalysisRepository repository;
     private final AnalysisEngine engine;
     private final AppProperties properties;
+    private final PreviewAnalysisEngine preview;
+    private final AiDemoQuota quota;
 
     public AnalysisWorker(
-            AnalysisRepository repository, AnalysisEngine engine, AppProperties properties) {
+            AnalysisRepository repository,
+            AnalysisEngine engine,
+            AppProperties properties,
+            PreviewAnalysisEngine preview,
+            AiDemoQuota quota) {
         this.repository = repository;
         this.engine = engine;
         this.properties = properties;
+        this.preview = preview;
+        this.quota = quota;
     }
 
     @Scheduled(fixedDelayString = "${app.worker-delay-ms:750}")
@@ -32,20 +42,43 @@ public class AnalysisWorker {
                 .claim()
                 .ifPresent(
                         job -> {
+                            AnalysisEngine selected =
+                                    job.mode() == Analysis.Mode.MODEL_ASSISTED
+                                                    && properties.model().enabled()
+                                            ? engine
+                                            : preview;
                             try {
-                                repository.updateStage(job.id(), engine.progressStage());
-                                repository.complete(
-                                        job.id(),
-                                        engine.analyze(
+                                if (!quota.start(job.id(), selected != preview)) {
+                                    return;
+                                }
+                                repository.updateStage(job.id(), selected.progressStage());
+                                var report =
+                                        selected.analyze(
                                                 job.input(),
-                                                progress -> publishProgress(job.id(), progress)));
+                                                progress -> publishProgress(job.id(), progress));
+                                if (job.mode() == Analysis.Mode.MODEL_ASSISTED
+                                        && selected == preview) {
+                                    repository.completePreview(job.id(), report, "AI_DISABLED");
+                                } else {
+                                    repository.complete(job.id(), report);
+                                }
                             } catch (Exception exception) {
                                 LOG.warn(
-                                        "Analysis {} failed with {}: {}",
+                                        "Analysis {} failed with {}",
                                         job.id(),
-                                        exception.getClass().getSimpleName(),
-                                        exception.getMessage());
-                                repository.fail(job.id());
+                                        exception.getClass().getSimpleName());
+                                if (selected != preview) {
+                                    try {
+                                        repository.completePreview(
+                                                job.id(),
+                                                preview.analyze(job.input()),
+                                                "AI_UNAVAILABLE");
+                                    } catch (Exception fallbackFailure) {
+                                        repository.fail(job.id());
+                                    }
+                                } else {
+                                    repository.fail(job.id());
+                                }
                             }
                         });
     }

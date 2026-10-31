@@ -28,6 +28,9 @@ import { useHydrated } from "@/hooks/use-hydrated";
 export function Intake() {
   const hydrated = useHydrated();
   const router = useRouter();
+  const analysisAttempt = useRef<{ input: string | File; context: string; key: string } | null>(
+    null,
+  );
   const fileInput = useRef<HTMLInputElement>(null);
   const [inputMode, setInputMode] = useState<"text" | "file">("text");
   const [text, setText] = useState(() => {
@@ -39,7 +42,9 @@ export function Intake() {
         const d = JSON.parse(raw) as { text?: string };
         return d.text ?? "";
       }
-    } catch { /* ignore */ }
+    } catch {
+      /* ignore */
+    }
     return "";
   });
   const [file, setFile] = useState<File | null>(null);
@@ -51,7 +56,9 @@ export function Intake() {
         const d = JSON.parse(raw) as { jurisdiction?: Jurisdiction };
         return d.jurisdiction ?? "UNSPECIFIED";
       }
-    } catch { /* ignore */ }
+    } catch {
+      /* ignore */
+    }
     return "UNSPECIFIED";
   });
   const [category, setCategory] = useState<Category>(() => {
@@ -62,7 +69,9 @@ export function Intake() {
         const d = JSON.parse(raw) as { category?: Category };
         return d.category ?? "CONSUMER";
       }
-    } catch { /* ignore */ }
+    } catch {
+      /* ignore */
+    }
     return "CONSUMER";
   });
   const [region, setRegion] = useState(() => {
@@ -73,7 +82,9 @@ export function Intake() {
         const d = JSON.parse(raw) as { region?: string };
         return typeof d.region === "string" ? d.region : "";
       }
-    } catch { /* ignore */ }
+    } catch {
+      /* ignore */
+    }
     return "";
   });
   const [selectedSample, setSelectedSample] = useState<string | null>(null);
@@ -210,12 +221,25 @@ export function Intake() {
     }
     setSubmitting(true);
     try {
-      const result = await createAnalysis(inputMode === "file" && file ? { file } : { text }, {
-        jurisdiction,
-        category,
-        region,
-      });
-      try { sessionStorage.removeItem("tos-draft"); } catch { /* ignore */ }
+      const input = inputMode === "file" && file ? file : text;
+      const context = JSON.stringify({ jurisdiction, category, region });
+      if (analysisAttempt.current?.input !== input || analysisAttempt.current.context !== context) {
+        analysisAttempt.current = { input, context, key: crypto.randomUUID() };
+      }
+      const result = await createAnalysis(
+        inputMode === "file" && file ? { file } : { text },
+        {
+          jurisdiction,
+          category,
+          region,
+        },
+        analysisAttempt.current.key,
+      );
+      try {
+        sessionStorage.removeItem("tos-draft");
+      } catch {
+        /* ignore */
+      }
       router.push(`/report/${result.id}`);
     } catch (cause) {
       setError(cause instanceof Error ? cause.message : "Analysis could not be started.");
@@ -508,16 +532,17 @@ export function Intake() {
             <details className="context-section">
               <summary>
                 Add context (optional) — shapes what the analysis focuses on
-                {hydrated && (() => {
-                  const parts: string[] = [];
-                  if (jurisdiction === "US") parts.push("United States");
-                  if (jurisdiction === "INDIA") parts.push("India");
-                  if (category === "FREELANCE") parts.push("Freelance / services");
-                  if (category === "OTHER") parts.push("Other agreement");
-                  return parts.length > 0 ? (
-                    <span className="context-summary-pill">{parts.join(" · ")}</span>
-                  ) : null;
-                })()}
+                {hydrated &&
+                  (() => {
+                    const parts: string[] = [];
+                    if (jurisdiction === "US") parts.push("United States");
+                    if (jurisdiction === "INDIA") parts.push("India");
+                    if (category === "FREELANCE") parts.push("Freelance / services");
+                    if (category === "OTHER") parts.push("Other agreement");
+                    return parts.length > 0 ? (
+                      <span className="context-summary-pill">{parts.join(" · ")}</span>
+                    ) : null;
+                  })()}
                 <span className="context-disclosure-hint">
                   Jurisdiction shapes analysis focus, not legal conclusions
                 </span>
@@ -555,7 +580,9 @@ export function Intake() {
                     disabled={!hydrated}
                     maxLength={80}
                     onChange={(event) => setRegion(event.target.value)}
-                    placeholder={hydrated && jurisdiction === "INDIA" ? "e.g. Maharashtra" : "e.g. California"}
+                    placeholder={
+                      hydrated && jurisdiction === "INDIA" ? "e.g. Maharashtra" : "e.g. California"
+                    }
                   />
                 </label>
               </div>

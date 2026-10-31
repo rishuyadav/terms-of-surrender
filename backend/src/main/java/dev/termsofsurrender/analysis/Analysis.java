@@ -88,5 +88,8 @@ public final class Analysis {
             Instant createdAt,
             Instant expiresAt,
             int version,
-            Progress progress) {}
+            Progress progress,
+            Mode selectedMode,
+            String previewReason,
+            boolean qaAvailable) {}
 }

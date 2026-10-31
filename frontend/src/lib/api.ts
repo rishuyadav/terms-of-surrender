@@ -48,6 +48,7 @@ export const establishSession = (signal?: AbortSignal) =>
 export function createAnalysis(
   input: { text: string } | { file: File },
   context: ContractContext,
+  requestKey = crypto.randomUUID(),
 ): Promise<AnalysisView> {
   const body = new FormData();
   if ("file" in input) body.append("file", input.file);
@@ -55,7 +56,11 @@ export function createAnalysis(
   body.append("jurisdiction", context.jurisdiction);
   body.append("category", context.category);
   body.append("region", context.region);
-  return request("/api/analyses", { method: "POST", body });
+  return request("/api/analyses", {
+    method: "POST",
+    body,
+    headers: { "Idempotency-Key": requestKey },
+  });
 }
 
 export const fetchAnalysis = (id: string, signal?: AbortSignal) =>
@@ -84,9 +89,18 @@ export interface QaAnswer {
   abstainReason: string;
 }
 
-export const askContract = (id: string, question: string) =>
-  request<QaAnswer>(`/api/analyses/${encodeURIComponent(id)}/ask`, {
+export interface QaServiceMessage {
+  question: string;
+  code:
+    "FREE_QUESTIONS_EXHAUSTED" | "QA_REQUIRES_AI_REPORT" | "VISITOR_UNVERIFIED" | "QA_UNAVAILABLE";
+  message: string;
+}
+
+export type QaResponse = QaAnswer | QaServiceMessage;
+
+export const askContract = (id: string, question: string, requestKey = crypto.randomUUID()) =>
+  request<QaResponse>(`/api/analyses/${encodeURIComponent(id)}/ask`, {
     method: "POST",
-    headers: { "Content-Type": "application/json" },
+    headers: { "Content-Type": "application/json", "Idempotency-Key": requestKey },
     body: JSON.stringify({ question }),
   });

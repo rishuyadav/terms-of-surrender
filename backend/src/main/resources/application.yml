@@ -41,6 +41,13 @@ app:
   max-jobs-per-session-per-hour: 10
   max-pending-jobs: 50
   worker-enabled: ${WORKER_ENABLED:true}
+  ai-demo:
+    enabled: ${AI_DEMO_ENABLED:false}
+    proxy-secret: ${AI_DEMO_PROXY_SECRET:}
+    analyses-per-ip: ${AI_DEMO_ANALYSES_PER_IP:5}
+    questions-per-ip: ${AI_DEMO_QUESTIONS_PER_IP:8}
+    max-characters: ${AI_DEMO_MAX_CHARACTERS:30000}
+    max-completion-tokens: ${AI_DEMO_MAX_COMPLETION_TOKENS:4000}
   model:
     enabled: ${MODEL_ENABLED:false}
     base-url: ${MODEL_BASE_URL:https://api.openai.com/v1}
