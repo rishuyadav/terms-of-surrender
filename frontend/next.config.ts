@@ -3,6 +3,10 @@ import type { NextConfig } from "next";
 const nextConfig: NextConfig = {
   output: "standalone",
   poweredByHeader: false,
+  experimental: {
+    // A 10 MB file plus multipart fields must survive Proxy's cloned body buffer.
+    proxyClientMaxBodySize: "12mb",
+  },
   async rewrites() {
     return [
       {

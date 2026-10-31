@@ -8,7 +8,9 @@ import dev.termsofsurrender.documents.DocumentExtractor;
 import dev.termsofsurrender.documents.DocumentIngestion;
 import dev.termsofsurrender.documents.UrlFetcher;
 import dev.termsofsurrender.jobs.AnalysisRepository;
+import dev.termsofsurrender.privacy.AiDemoQuota;
 import dev.termsofsurrender.privacy.Sessions;
+import dev.termsofsurrender.privacy.VisitorIdentity;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
 import java.net.URI;
@@ -37,6 +39,8 @@ public class AnalysisController {
     private final AnalysisStreams streams;
     private final UrlFetcher urlFetcher;
     private final ContractQa qa;
+    private final VisitorIdentity visitors;
+    private final AiDemoQuota quota;
 
     public AnalysisController(
             Sessions sessions,
@@ -45,7 +49,9 @@ public class AnalysisController {
             AnalysisRepository repository,
             AnalysisStreams streams,
             UrlFetcher urlFetcher,
-            ContractQa qa) {
+            ContractQa qa,
+            VisitorIdentity visitors,
+            AiDemoQuota quota) {
         this.sessions = sessions;
         this.properties = properties;
         this.extractor = extractor;
@@ -53,6 +59,8 @@ public class AnalysisController {
         this.streams = streams;
         this.urlFetcher = urlFetcher;
         this.qa = qa;
+        this.visitors = visitors;
+        this.quota = quota;
     }
 
     @GetMapping("/session")
@@ -105,7 +113,12 @@ public class AnalysisController {
         }
         Document document = extractor.extract(text, file);
         Analysis.Context context = new Analysis.Context(jurisdiction, category, region.strip());
-        Analysis.View view = repository.create(owner, new Analysis.Input(document, context));
+        Analysis.View view =
+                repository.create(
+                        owner,
+                        new Analysis.Input(document, context),
+                        visitors.verify(request, owner),
+                        VisitorIdentity.idempotencyKey(request));
         return ResponseEntity.accepted()
                 .location(URI.create("/api/analyses/" + view.id()))
                 .body(view);
@@ -134,6 +147,8 @@ public class AnalysisController {
     @PostMapping("/analyses/{id}/ask")
     Map<String, Object> ask(
             @PathVariable UUID id, @RequestBody AskRequest body, HttpServletRequest request) {
+        String owner = sessions.require(request);
+        Analysis.View view = repository.find(id, owner).orElseThrow(ApiException::notFound);
         if (!qa.isAvailable()) {
             throw new ApiException(
                     org.springframework.http.HttpStatus.SERVICE_UNAVAILABLE,
@@ -141,8 +156,6 @@ public class AnalysisController {
                     "Contract Q&A requires a configured AI provider. This deployment uses keyword"
                             + " preview only.");
         }
-        Analysis.View view =
-                repository.find(id, sessions.require(request)).orElseThrow(ApiException::notFound);
         if (view.status() != Analysis.Status.COMPLETED) {
             throw ApiException.invalid(
                     "ANALYSIS_NOT_READY", "The analysis must be complete before asking questions.");
@@ -152,24 +165,62 @@ public class AnalysisController {
                 || body.question().length() > 300) {
             throw ApiException.invalid("INVALID_QUESTION", "Question must be 1–300 characters.");
         }
-        ContractQa.Answer answer =
-                qa.ask(view.document(), body.question().strip())
-                        .orElseThrow(
-                                () ->
-                                        ApiException.invalid(
-                                                "QA_UNAVAILABLE", "Q&A is not available."));
-        return Map.of(
-                "question",
-                body.question().strip(),
-                "answer",
-                answer.answer() != null ? answer.answer() : "",
-                "blockId",
-                answer.blockId() != null ? answer.blockId() : "",
-                "quote",
-                answer.quote() != null ? answer.quote() : "",
-                "abstain",
-                answer.abstain(),
-                "abstainReason",
-                answer.abstainReason() != null ? answer.abstainReason() : "");
+        String question = body.question().strip();
+        var reservation =
+                quota.question(
+                        owner,
+                        VisitorIdentity.idempotencyKey(request),
+                        Sessions.hash(id + "\n" + question),
+                        id,
+                        visitors.verify(request, owner),
+                        view.report() != null
+                                && view.report().mode() == Analysis.Mode.MODEL_ASSISTED);
+        if (reservation.responseJson() != null) {
+            return quota.cachedAnswer(reservation.responseJson());
+        }
+        if (reservation.code() != null) {
+            return Map.of(
+                    "question",
+                    question,
+                    "code",
+                    reservation.code(),
+                    "message",
+                    reservation.message());
+        }
+        Map<String, Object> result;
+        try {
+            ContractQa.Answer answer =
+                    qa.ask(view.document(), question)
+                            .orElseThrow(
+                                    () ->
+                                            ApiException.invalid(
+                                                    "QA_UNAVAILABLE", "Q&A is not available."));
+            result =
+                    Map.of(
+                            "question",
+                            body.question().strip(),
+                            "answer",
+                            answer.answer() != null ? answer.answer() : "",
+                            "blockId",
+                            answer.blockId() != null ? answer.blockId() : "",
+                            "quote",
+                            answer.quote() != null ? answer.quote() : "",
+                            "abstain",
+                            answer.abstain(),
+                            "abstainReason",
+                            answer.abstainReason() != null ? answer.abstainReason() : "");
+        } catch (RuntimeException exception) {
+            // A failed provider attempt still spends a question credit and is never auto-retried.
+            result =
+                    Map.of(
+                            "question",
+                            question,
+                            "code",
+                            "QA_UNAVAILABLE",
+                            "message",
+                            "AI could not answer this question right now. You can still review the cited clauses.");
+        }
+        quota.saveAnswer(reservation.requestHash(), result);
+        return result;
     }
 }

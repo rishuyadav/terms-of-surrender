@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useMemo } from "react";
+import { useState, useMemo, useRef } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import {
@@ -34,15 +34,27 @@ import { SourceHighlight } from "./source-highlight";
 import { AnalysisProgress } from "./analysis-progress";
 import { useAnalysis } from "@/hooks/use-analysis";
 import { deleteAnalysis, askContract } from "@/lib/api";
-import type { QaAnswer } from "@/lib/api";
+import type { QaResponse } from "@/lib/api";
 import { contextLabel, sourceSegments } from "@/lib/source";
 import type { Finding, Impact } from "@/lib/types";
 
 // Stable topic IDs from the preview report contract; consequence findings have distinct IDs.
 const previewTopicIds = new Set([
-  "renewal", "arbitration", "fees", "liability", "changes", "ip", "payment",
-  "termination", "data", "restriction", "scope-of-work", "expenses", "acceptance",
-  "free-trial", "notice-of-changes",
+  "renewal",
+  "arbitration",
+  "fees",
+  "liability",
+  "changes",
+  "ip",
+  "payment",
+  "termination",
+  "data",
+  "restriction",
+  "scope-of-work",
+  "expenses",
+  "acceptance",
+  "free-trial",
+  "notice-of-changes",
 ]);
 
 export function ReportViewer({ id }: { id: string }) {
@@ -64,18 +76,24 @@ export function ReportViewer({ id }: { id: string }) {
   } | null>(null);
   const [qaQuestion, setQaQuestion] = useState("");
   const [qaAsking, setQaAsking] = useState(false);
-  const [qaAnswers, setQaAnswers] = useState<QaAnswer[]>([]);
+  const [qaAnswers, setQaAnswers] = useState<QaResponse[]>([]);
+  const questionAttempt = useRef<{ question: string; key: string } | null>(null);
   const [qaError, setQaError] = useState<string | null>(null);
   const findings = view?.report?.findings ?? view?.progress?.findings ?? [];
   const inProgress = view?.status === "QUEUED" || view?.status === "PROCESSING";
   const incompleteFindings = view?.status !== "COMPLETED" && findings.length > 0;
-  const consequencePreview = view?.report?.mode === "RULE_BASED_PREVIEW"
-    && ["preview-2", "preview-2.1"].includes(view.report.engineVersion);
-  const quietTopics = consequencePreview && filter === "ALL"
-    ? findings.filter((finding) => finding.impact === "REVIEW"
-        && previewTopicIds.has(finding.id)
-        && !view?.report?.priorities?.includes(finding.id))
-    : [];
+  const consequencePreview =
+    view?.report?.mode === "RULE_BASED_PREVIEW" &&
+    ["preview-2", "preview-2.1"].includes(view.report.engineVersion);
+  const quietTopics =
+    consequencePreview && filter === "ALL"
+      ? findings.filter(
+          (finding) =>
+            finding.impact === "REVIEW" &&
+            previewTopicIds.has(finding.id) &&
+            !view?.report?.priorities?.includes(finding.id),
+        )
+      : [];
   const quietTopicIds = new Set(quietTopics.map((finding) => finding.id));
 
   // Blocks that match the source search query (case-insensitive substring).
@@ -97,7 +115,8 @@ export function ReportViewer({ id }: { id: string }) {
       setMobilePane("findings");
       requestAnimationFrame(() => {
         document.getElementById(`finding-title-${finding.id}`)?.focus({ preventScroll: true });
-        document.getElementById(`finding-${finding.id}`)
+        document
+          .getElementById(`finding-${finding.id}`)
           ?.scrollIntoView({ behavior: "smooth", block: "nearest" });
       });
     } else {
@@ -107,7 +126,9 @@ export function ReportViewer({ id }: { id: string }) {
       }
       setMobilePane("source");
       requestAnimationFrame(() => {
-        const highlight = document.querySelector<HTMLElement>(`#block-${finding.evidence.blockId} .source-highlight.active`);
+        const highlight = document.querySelector<HTMLElement>(
+          `#block-${finding.evidence.blockId} .source-highlight.active`,
+        );
         highlight?.focus({ preventScroll: true });
         highlight?.scrollIntoView({ behavior: "smooth", block: "center" });
       });
@@ -144,14 +165,14 @@ export function ReportViewer({ id }: { id: string }) {
   }
 
   async function copyAllQuestions() {
-    const text = findings
-      .map((f, i) => `${i + 1}. ${f.suggestedQuestion}`)
-      .join("\n");
+    const text = findings.map((f, i) => `${i + 1}. ${f.suggestedQuestion}`).join("\n");
     try {
       await navigator.clipboard.writeText(text);
       setAllCopied(true);
       setTimeout(() => setAllCopied(false), 2000);
-    } catch { /* ignore */ }
+    } catch {
+      /* ignore */
+    }
   }
 
   async function askQuestion(e: React.FormEvent) {
@@ -160,8 +181,13 @@ export function ReportViewer({ id }: { id: string }) {
     setQaAsking(true);
     setQaError(null);
     try {
-      const answer = await askContract(view.id, qaQuestion.trim());
+      const question = qaQuestion.trim();
+      if (questionAttempt.current?.question !== question) {
+        questionAttempt.current = { question, key: crypto.randomUUID() };
+      }
+      const answer = await askContract(view.id, question, questionAttempt.current.key);
       setQaAnswers((prev) => [answer, ...prev]);
+      questionAttempt.current = null;
       setQaQuestion("");
     } catch (cause) {
       setQaError(cause instanceof Error ? cause.message : "Could not reach the Q&A service.");
@@ -227,9 +253,10 @@ export function ReportViewer({ id }: { id: string }) {
 </div>
 ${view.report.summary ? `<div class="summary">${esc(view.report.summary)}</div>` : ""}
 ${checklist.length > 0 ? `<div class="checklist"><h3>BEFORE YOU AGREE</h3><ul>${checklist.map((c) => `<li><span class="tag tag-${c.action.toLowerCase()}">${esc(c.action)}</span>${esc(c.text)}</li>`).join("")}</ul></div>` : ""}
-${reportFindings.map((f, i) => {
-  const context = contextForFinding(f);
-  return `
+${reportFindings
+  .map((f, i) => {
+    const context = contextForFinding(f);
+    return `
 <div class="finding">
   <span class="badge ${f.impact.toLowerCase()}">${f.impact === "HIGH" ? "High impact" : f.impact === "REVIEW" ? "Worth reviewing" : "Potential protection"}</span>
   <h2>${i + 1}. ${esc(f.title)}</h2>
@@ -238,7 +265,8 @@ ${reportFindings.map((f, i) => {
   ${context ? `<details><summary>Surrounding passage (context)</summary><blockquote>${esc(context)}</blockquote></details>` : ""}
   <div class="question"><strong>A question to ask:</strong> ${esc(f.suggestedQuestion)}</div>
 </div>`;
-}).join("")}
+  })
+  .join("")}
 <div class="limitations">
   <strong>Limitations</strong>
   <ul>${view.report.limitations.map((l) => `<li>${esc(l)}</li>`).join("")}</ul>
@@ -282,7 +310,8 @@ ${reportFindings.map((f, i) => {
           setSelected(finding.id);
           setMobilePane("source");
           requestAnimationFrame(() =>
-            document.getElementById(`block-${blockId}`)
+            document
+              .getElementById(`block-${blockId}`)
               ?.scrollIntoView({ behavior: "smooth", block: "center" }),
           );
         }}
@@ -336,7 +365,10 @@ ${reportFindings.map((f, i) => {
             <div className="report-title-row">
               <div>
                 <p className="eyebrow">THE AGREEMENT, UNPACKED</p>
-                <h1>{view.document.title}<span>.</span></h1>
+                <h1>
+                  {view.document.title}
+                  <span>.</span>
+                </h1>
                 <p className="report-context">
                   {contextLabel(view.context.jurisdiction, view.context.category)}
                   {view.context.region ? ` · ${view.context.region}` : ""}
@@ -426,8 +458,20 @@ ${reportFindings.map((f, i) => {
                           ? "High impact flags explicit potentially consequential conditions. It does not mean illegal or unenforceable. Check the quoted exceptions and whether each passage applies to your plan."
                           : "These are topics worth inspecting, not a verdict on whether the terms are harmful or enforceable."
                         : "Exact quotes are checked against your source. Interpretations can still be wrong."}{" "}
-                      No reviewed legal guidance is enabled; jurisdiction context shapes focus, not conclusions.
+                      No reviewed legal guidance is enabled; jurisdiction context shapes focus, not
+                      conclusions.
                     </span>
+                    {view.previewReason && (
+                      <span role="status">
+                        {view.previewReason === "FREE_ANALYSES_EXHAUSTED"
+                          ? "Free AI analysis exhausted. We’ve switched this analysis to keyword preview."
+                          : view.previewReason === "DOCUMENT_TOO_LARGE"
+                            ? "This document exceeds the free AI processing size. We’ve analyzed the full text using keyword preview."
+                            : view.previewReason === "AI_UNAVAILABLE"
+                              ? "AI analysis was unavailable. This report uses keyword preview."
+                              : "AI analysis is unavailable for this request. This report uses keyword preview."}
+                      </span>
+                    )}
                     {view.report?.contextLabel && view.report.contextLabel !== "Not specified" && (
                       <span className="context-label-pill">{view.report.contextLabel}</span>
                     )}
@@ -468,44 +512,57 @@ ${reportFindings.map((f, i) => {
                 </section>
 
                 {/* "Start here" priority findings */}
-                {view.report?.priorities && view.report.priorities.length > 0 && (() => {
-                  const priorityFindings = view.report.priorities
-                    .map((pid) => findings.find((f) => f.id === pid))
-                    .filter((f): f is NonNullable<typeof f> => f !== undefined);
-                  if (priorityFindings.length === 0) return null;
-                  return (
-                    <section className="start-here-section" aria-labelledby="start-here-title">
-                      <div className="start-here-header">
-                        <span className="label-caption" id="start-here-title">START HERE</span>
-                        <p>The findings most worth your attention</p>
-                      </div>
-                      <ol className="start-here-list">
-                        {priorityFindings.map((f) => (
-                          <li key={f.id} className={`start-here-item impact-${f.impact.toLowerCase()}`}>
-                            <button
-                              type="button"
-                              className="start-here-btn"
-                              onClick={() => selectFinding(f)}
+                {view.report?.priorities &&
+                  view.report.priorities.length > 0 &&
+                  (() => {
+                    const priorityFindings = view.report.priorities
+                      .map((pid) => findings.find((f) => f.id === pid))
+                      .filter((f): f is NonNullable<typeof f> => f !== undefined);
+                    if (priorityFindings.length === 0) return null;
+                    return (
+                      <section className="start-here-section" aria-labelledby="start-here-title">
+                        <div className="start-here-header">
+                          <span className="label-caption" id="start-here-title">
+                            START HERE
+                          </span>
+                          <p>The findings most worth your attention</p>
+                        </div>
+                        <ol className="start-here-list">
+                          {priorityFindings.map((f) => (
+                            <li
+                              key={f.id}
+                              className={`start-here-item impact-${f.impact.toLowerCase()}`}
                             >
-                              <span className={`start-here-pill ${f.impact.toLowerCase()}`}>
-                                {f.impact === "HIGH" ? "High impact" : f.impact === "REVIEW" ? "Review" : "Protection"}
-                              </span>
-                              <span className="start-here-title">{f.title}</span>
-                              <ArrowRight size={14} className="start-here-arrow" />
-                            </button>
-                            <p className="start-here-why">{f.whyItMatters}</p>
-                          </li>
-                        ))}
-                      </ol>
-                    </section>
-                  );
-                })()}
+                              <button
+                                type="button"
+                                className="start-here-btn"
+                                onClick={() => selectFinding(f)}
+                              >
+                                <span className={`start-here-pill ${f.impact.toLowerCase()}`}>
+                                  {f.impact === "HIGH"
+                                    ? "High impact"
+                                    : f.impact === "REVIEW"
+                                      ? "Review"
+                                      : "Protection"}
+                                </span>
+                                <span className="start-here-title">{f.title}</span>
+                                <ArrowRight size={14} className="start-here-arrow" />
+                              </button>
+                              <p className="start-here-why">{f.whyItMatters}</p>
+                            </li>
+                          ))}
+                        </ol>
+                      </section>
+                    );
+                  })()}
 
                 {/* Action checklist */}
                 {view.report?.checklist && view.report.checklist.length > 0 && (
                   <section className="action-checklist" aria-labelledby="checklist-title">
                     <div className="checklist-header">
-                      <span className="label-caption" id="checklist-title">BEFORE YOU AGREE</span>
+                      <span className="label-caption" id="checklist-title">
+                        BEFORE YOU AGREE
+                      </span>
                       <button
                         type="button"
                         className="text-button copy-all-btn"
@@ -515,7 +572,9 @@ ${reportFindings.map((f, i) => {
                             .join("\n");
                           try {
                             await navigator.clipboard.writeText(text);
-                          } catch { /* ignore */ }
+                          } catch {
+                            /* ignore */
+                          }
                         }}
                       >
                         <Copy size={12} /> Copy checklist
@@ -537,97 +596,123 @@ ${reportFindings.map((f, i) => {
                   </section>
                 )}
 
-                {/* Ask the Contract — only when model-assisted and completed */}
-                {view.status === "COMPLETED" && view.report?.mode === "MODEL_ASSISTED" && (
-                  <section className="qa-section" aria-labelledby="qa-title">
-                    <div className="qa-header">
-                      <MessageCircleQuestion size={16} />
-                      <span className="label-caption" id="qa-title">ASK ABOUT THIS AGREEMENT</span>
-                    </div>
-                    <p className="qa-intro">
-                      Ask a specific question. Answers come only from the contract text above — not general knowledge.
-                    </p>
-                    <form className="qa-form" onSubmit={askQuestion}>
-                      <input
-                        type="text"
-                        className="qa-input"
-                        placeholder="e.g. What happens if I cancel next month?"
-                        value={qaQuestion}
-                        maxLength={300}
-                        onChange={(e) => setQaQuestion(e.target.value)}
-                        disabled={qaAsking}
-                        aria-label="Ask a question about this contract"
-                      />
-                      <button
-                        type="submit"
-                        className="primary-button qa-submit"
-                        disabled={!qaQuestion.trim() || qaAsking}
-                      >
-                        {qaAsking ? <LoaderCircle size={15} className="spin" /> : <Send size={15} />}
-                        {qaAsking ? "Asking…" : "Ask"}
-                      </button>
-                    </form>
-                    {qaError && <p className="qa-error" role="alert">{qaError}</p>}
-                    {/* Suggested starter questions derived from the report */}
-                    {qaAnswers.length === 0 && findings.length > 0 && (
-                      <div className="qa-suggestions">
-                        <span className="qa-suggestions-label">Try asking:</span>
-                        {findings.slice(0, 3).map((f) => (
-                          <button
-                            key={f.id}
-                            type="button"
-                            className="qa-suggestion-btn"
-                            onClick={() => setQaQuestion(f.suggestedQuestion)}
-                          >
-                            {f.suggestedQuestion}
-                          </button>
-                        ))}
+                {/* Quota exhaustion never hides or disables the Q&A controls. */}
+                {view.status === "COMPLETED" &&
+                  (view.qaAvailable || view.report?.mode === "MODEL_ASSISTED") && (
+                    <section className="qa-section" aria-labelledby="qa-title">
+                      <div className="qa-header">
+                        <MessageCircleQuestion size={16} />
+                        <span className="label-caption" id="qa-title">
+                          ASK ABOUT THIS AGREEMENT
+                        </span>
                       </div>
-                    )}
-                    {qaAnswers.length > 0 && (
-                      <div className="qa-answers">
-                        {qaAnswers.map((qa, i) => (
-                          <div key={i} className={`qa-answer ${qa.abstain ? "abstain" : ""}`}>
-                            <p className="qa-q">{qa.question}</p>
-                            {qa.abstain ? (
-                              <p className="qa-abstain-text">
-                                <Info size={13} /> {qa.abstainReason || "No relevant text found in the document."}
-                              </p>
-                            ) : (
-                              <>
-                                <p className="qa-a">{qa.answer}</p>
-                                {qa.quote && (
-                                  <blockquote className="qa-citation">
-                                    <button
-                                      type="button"
-                                      className="qa-citation-link"
-                                      onClick={() => {
-                                        if (qa.blockId) {
-                                          if (matchingBlockIds && !matchingBlockIds.has(qa.blockId)) {
-                                            setSourceSearch("");
+                      <p className="qa-intro">
+                        Ask a specific question. Answers come only from the contract text above —
+                        not general knowledge.
+                      </p>
+                      <form className="qa-form" onSubmit={askQuestion}>
+                        <input
+                          type="text"
+                          className="qa-input"
+                          placeholder="e.g. What happens if I cancel next month?"
+                          value={qaQuestion}
+                          maxLength={300}
+                          onChange={(e) => setQaQuestion(e.target.value)}
+                          disabled={qaAsking}
+                          aria-label="Ask a question about this contract"
+                        />
+                        <button
+                          type="submit"
+                          className="primary-button qa-submit"
+                          disabled={!qaQuestion.trim() || qaAsking}
+                        >
+                          {qaAsking ? (
+                            <LoaderCircle size={15} className="spin" />
+                          ) : (
+                            <Send size={15} />
+                          )}
+                          {qaAsking ? "Asking…" : "Ask"}
+                        </button>
+                      </form>
+                      {qaError && (
+                        <p className="qa-error" role="alert">
+                          {qaError}
+                        </p>
+                      )}
+                      {/* Suggested starter questions derived from the report */}
+                      {qaAnswers.length === 0 && findings.length > 0 && (
+                        <div className="qa-suggestions">
+                          <span className="qa-suggestions-label">Try asking:</span>
+                          {findings.slice(0, 3).map((f) => (
+                            <button
+                              key={f.id}
+                              type="button"
+                              className="qa-suggestion-btn"
+                              onClick={() => setQaQuestion(f.suggestedQuestion)}
+                            >
+                              {f.suggestedQuestion}
+                            </button>
+                          ))}
+                        </div>
+                      )}
+                      {qaAnswers.length > 0 && (
+                        <div className="qa-answers">
+                          {qaAnswers.map((qa, i) => (
+                            <div
+                              key={i}
+                              className={`qa-answer ${"code" in qa || qa.abstain ? "abstain" : ""}`}
+                            >
+                              <p className="qa-q">{qa.question}</p>
+                              {"code" in qa ? (
+                                <p className="qa-abstain-text" role="status">
+                                  <Info size={13} /> {qa.message}
+                                </p>
+                              ) : qa.abstain ? (
+                                <p className="qa-abstain-text">
+                                  <Info size={13} />{" "}
+                                  {qa.abstainReason || "No relevant text found in the document."}
+                                </p>
+                              ) : (
+                                <>
+                                  <p className="qa-a">{qa.answer}</p>
+                                  {qa.quote && (
+                                    <blockquote className="qa-citation">
+                                      <button
+                                        type="button"
+                                        className="qa-citation-link"
+                                        onClick={() => {
+                                          if (qa.blockId) {
+                                            if (
+                                              matchingBlockIds &&
+                                              !matchingBlockIds.has(qa.blockId)
+                                            ) {
+                                              setSourceSearch("");
+                                            }
+                                            setMobilePane("source");
+                                            requestAnimationFrame(() =>
+                                              document
+                                                .getElementById(`block-${qa.blockId}`)
+                                                ?.scrollIntoView({
+                                                  behavior: "smooth",
+                                                  block: "center",
+                                                }),
+                                            );
                                           }
-                                          setMobilePane("source");
-                                          requestAnimationFrame(() =>
-                                            document
-                                              .getElementById(`block-${qa.blockId}`)
-                                              ?.scrollIntoView({ behavior: "smooth", block: "center" }),
-                                          );
-                                        }
-                                      }}
-                                    >
-                                      <ArrowUpRight size={11} /> Show in document
-                                    </button>
-                                    &ldquo;{qa.quote}&rdquo;
-                                  </blockquote>
-                                )}
-                              </>
-                            )}
-                          </div>
-                        ))}
-                      </div>
-                    )}
-                  </section>
-                )}
+                                        }}
+                                      >
+                                        <ArrowUpRight size={11} /> Show in document
+                                      </button>
+                                      &ldquo;{qa.quote}&rdquo;
+                                    </blockquote>
+                                  )}
+                                </>
+                              )}
+                            </div>
+                          ))}
+                        </div>
+                      )}
+                    </section>
+                  )}
               </>
             )}
 
@@ -675,7 +760,9 @@ ${reportFindings.map((f, i) => {
                 <div className="pane-header">
                   <div>
                     <FileText size={16} />
-                    <h2 id="source-title" tabIndex={-1}>The original wording</h2>
+                    <h2 id="source-title" tabIndex={-1}>
+                      The original wording
+                    </h2>
                   </div>
                   <span>
                     {view.document.sourceType} ·{" "}
@@ -726,90 +813,117 @@ ${reportFindings.map((f, i) => {
                   {view.document.blocks
                     .filter((block) => !matchingBlockIds || matchingBlockIds.has(block.id))
                     .map((block) => (
-                    <div
-                      key={block.id}
-                      id={`block-${block.id}`}
-                      className={`source-block${findings.some((finding) => finding.id === selected && finding.evidence.blockId === block.id) ? " focused" : ""}`}
-                    >
-                      <span
-                        className="block-page"
-                        aria-label={
-                          view.document.sourceType === "PDF"
-                            ? `Page ${block.page}`
-                            : `Text block ${block.id}`
-                        }
+                      <div
+                        key={block.id}
+                        id={`block-${block.id}`}
+                        className={`source-block${findings.some((finding) => finding.id === selected && finding.evidence.blockId === block.id) ? " focused" : ""}`}
                       >
-                        {view.document.sourceType === "PDF"
-                          ? String(block.page).padStart(2, "0")
-                          : "§"}
-                      </span>
-                      <div className="source-block-content">
-                      <p>
-                        {sourceSegments(block, findings).map((segment) => {
-                          if (segment.findingIds.length === 0) {
-                            return <span key={segment.start}>{segment.text}</span>;
+                        <span
+                          className="block-page"
+                          aria-label={
+                            view.document.sourceType === "PDF"
+                              ? `Page ${block.page}`
+                              : `Text block ${block.id}`
                           }
-                          const segmentFindings = findings.filter((f) =>
-                            segment.findingIds.includes(f.id),
-                          );
-                          return (
-                            <SourceHighlight
-                              key={segment.start}
-                              segment={segment}
-                              findings={segmentFindings}
-                              selected={selected}
-                              choicesOpen={overlap?.blockId === block.id && overlap.start === segment.start}
-                              onSelect={(finding) => selectFinding(finding, true)}
-                              onChoose={(triggerId) => {
-                                setOverlap({ blockId: block.id, start: segment.start,
-                                  findingIds: segment.findingIds, triggerId });
-                                requestAnimationFrame(() => {
-                                  const chooser = document.getElementById("source-overlap-chooser");
-                                  chooser?.focus({ preventScroll: true });
-                                  chooser?.scrollIntoView({ behavior: "smooth", block: "nearest" });
-                                });
-                              }}
-                            />
-                          );
-                        })}
-                      </p>
-                      {overlap?.blockId === block.id && (
-                        <section
-                          id="source-overlap-chooser"
-                          className="source-overlap-chooser"
-                          aria-labelledby="source-overlap-title"
-                          tabIndex={-1}
-                          onKeyDown={(event) => {
-                            if (event.key === "Escape") {
-                              event.preventDefault();
-                              event.stopPropagation();
-                              closeOverlap();
-                            }
-                          }}
                         >
-                          <div className="source-overlap-heading">
-                            <h3 id="source-overlap-title">Choose a finding for this passage</h3>
-                            <button type="button" className="icon-button" onClick={closeOverlap} aria-label="Close overlapping findings">
-                              <X size={15} />
-                            </button>
-                          </div>
-                          <ul>
-                            {findings.filter((finding) => overlap.findingIds.includes(finding.id)).map((finding) => (
-                              <li key={finding.id}>
-                                <button type="button" aria-pressed={finding.id === selected} onClick={() => selectFinding(finding, true)}>
-                                  <span className={`impact-pill ${finding.impact.toLowerCase()}`}>
-                                    {finding.impact === "HIGH" ? "High impact" : finding.impact === "REVIEW" ? "Worth reviewing" : "Potential protection"}
-                                  </span>
-                                  {finding.title}
+                          {view.document.sourceType === "PDF"
+                            ? String(block.page).padStart(2, "0")
+                            : "§"}
+                        </span>
+                        <div className="source-block-content">
+                          <p>
+                            {sourceSegments(block, findings).map((segment) => {
+                              if (segment.findingIds.length === 0) {
+                                return <span key={segment.start}>{segment.text}</span>;
+                              }
+                              const segmentFindings = findings.filter((f) =>
+                                segment.findingIds.includes(f.id),
+                              );
+                              return (
+                                <SourceHighlight
+                                  key={segment.start}
+                                  segment={segment}
+                                  findings={segmentFindings}
+                                  selected={selected}
+                                  choicesOpen={
+                                    overlap?.blockId === block.id && overlap.start === segment.start
+                                  }
+                                  onSelect={(finding) => selectFinding(finding, true)}
+                                  onChoose={(triggerId) => {
+                                    setOverlap({
+                                      blockId: block.id,
+                                      start: segment.start,
+                                      findingIds: segment.findingIds,
+                                      triggerId,
+                                    });
+                                    requestAnimationFrame(() => {
+                                      const chooser =
+                                        document.getElementById("source-overlap-chooser");
+                                      chooser?.focus({ preventScroll: true });
+                                      chooser?.scrollIntoView({
+                                        behavior: "smooth",
+                                        block: "nearest",
+                                      });
+                                    });
+                                  }}
+                                />
+                              );
+                            })}
+                          </p>
+                          {overlap?.blockId === block.id && (
+                            <section
+                              id="source-overlap-chooser"
+                              className="source-overlap-chooser"
+                              aria-labelledby="source-overlap-title"
+                              tabIndex={-1}
+                              onKeyDown={(event) => {
+                                if (event.key === "Escape") {
+                                  event.preventDefault();
+                                  event.stopPropagation();
+                                  closeOverlap();
+                                }
+                              }}
+                            >
+                              <div className="source-overlap-heading">
+                                <h3 id="source-overlap-title">Choose a finding for this passage</h3>
+                                <button
+                                  type="button"
+                                  className="icon-button"
+                                  onClick={closeOverlap}
+                                  aria-label="Close overlapping findings"
+                                >
+                                  <X size={15} />
                                 </button>
-                              </li>
-                            ))}
-                          </ul>
-                        </section>
-                      )}
+                              </div>
+                              <ul>
+                                {findings
+                                  .filter((finding) => overlap.findingIds.includes(finding.id))
+                                  .map((finding) => (
+                                    <li key={finding.id}>
+                                      <button
+                                        type="button"
+                                        aria-pressed={finding.id === selected}
+                                        onClick={() => selectFinding(finding, true)}
+                                      >
+                                        <span
+                                          className={`impact-pill ${finding.impact.toLowerCase()}`}
+                                        >
+                                          {finding.impact === "HIGH"
+                                            ? "High impact"
+                                            : finding.impact === "REVIEW"
+                                              ? "Worth reviewing"
+                                              : "Potential protection"}
+                                        </span>
+                                        {finding.title}
+                                      </button>
+                                    </li>
+                                  ))}
+                              </ul>
+                            </section>
+                          )}
+                        </div>
                       </div>
-                    </div>
-                  ))}
+                    ))}
                   {matchingBlockIds !== null && matchingBlockIds.size === 0 && (
                     <p className="source-search-empty">
                       No matching text found. Try a shorter phrase.
@@ -821,13 +935,20 @@ ${reportFindings.map((f, i) => {
                 </div>
               </section>
 
-              <section className={`findings-pane${inProgress || incompleteFindings ? " live-findings" : ""}`} aria-labelledby="findings-title">
+              <section
+                className={`findings-pane${inProgress || incompleteFindings ? " live-findings" : ""}`}
+                aria-labelledby="findings-title"
+              >
                 <div className="pane-header">
                   <div>
                     <ListFilter size={16} />
                     <h2 id="findings-title">In plain English</h2>
                   </div>
-                  <span>{inProgress && findings.length === 0 ? "REVIEW IN PROGRESS" : `${findings.length} FINDINGS${incompleteFindings ? " SO FAR" : ""}`}</span>
+                  <span>
+                    {inProgress && findings.length === 0
+                      ? "REVIEW IN PROGRESS"
+                      : `${findings.length} FINDINGS${incompleteFindings ? " SO FAR" : ""}`}
+                  </span>
                   {findings.length > 0 && (
                     <button
                       type="button"
@@ -835,7 +956,11 @@ ${reportFindings.map((f, i) => {
                       onClick={copyAllQuestions}
                     >
                       {allCopied ? <Check size={13} /> : <Copy size={13} />}
-                      {allCopied ? "Copied" : consequencePreview ? "Copy questions and actions" : "Copy all questions"}
+                      {allCopied
+                        ? "Copied"
+                        : consequencePreview
+                          ? "Copy questions and actions"
+                          : "Copy all questions"}
                     </button>
                   )}
                 </div>
@@ -843,9 +968,16 @@ ${reportFindings.map((f, i) => {
                   <div className="partial-findings-notice">
                     <ShieldCheck size={15} aria-hidden="true" />
                     <p>
-                      <strong>{view.status === "FAILED" ? "Incomplete analysis." : "Early findings, not the full report."}</strong>{" "}
-                      These quotes were checked against your source, but interpretations can still be wrong.
-                      {view.status === "FAILED" ? " Remaining text groups were not fully reviewed. Do not treat these findings as a complete assessment." : " More findings may follow. Final priorities and the checklist appear when the review finishes."}
+                      <strong>
+                        {view.status === "FAILED"
+                          ? "Incomplete analysis."
+                          : "Early findings, not the full report."}
+                      </strong>{" "}
+                      These quotes were checked against your source, but interpretations can still
+                      be wrong.
+                      {view.status === "FAILED"
+                        ? " Remaining text groups were not fully reviewed. Do not treat these findings as a complete assessment."
+                        : " More findings may follow. Final priorities and the checklist appear when the review finishes."}
                     </p>
                   </div>
                 )}
@@ -903,14 +1035,24 @@ ${reportFindings.map((f, i) => {
                   ) : (
                     <>
                       {findings.map((finding, index) =>
-                        (filter !== "ALL" && finding.impact !== filter) || quietTopicIds.has(finding.id)
-                          ? null : renderFinding(finding, index),
+                        (filter !== "ALL" && finding.impact !== filter) ||
+                        quietTopicIds.has(finding.id)
+                          ? null
+                          : renderFinding(finding, index),
                       )}
                       {quietTopics.length > 0 && (
-                        <details className="other-topics" open={quietTopics.some((finding) => finding.id === selected) || undefined}>
+                        <details
+                          className="other-topics"
+                          open={quietTopics.some((finding) => finding.id === selected) || undefined}
+                        >
                           <summary>Other topics detected ({quietTopics.length})</summary>
-                          <p>These are topic matches, not established adverse consequences. Read them alongside the full agreement.</p>
-                          {quietTopics.map((finding) => renderFinding(finding, findings.indexOf(finding)))}
+                          <p>
+                            These are topic matches, not established adverse consequences. Read them
+                            alongside the full agreement.
+                          </p>
+                          {quietTopics.map((finding) =>
+                            renderFinding(finding, findings.indexOf(finding)),
+                          )}
                         </details>
                       )}
                     </>

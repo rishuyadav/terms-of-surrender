@@ -14,7 +14,8 @@ test("uploads an actual PDF and shows verified page evidence", async ({ page }) 
   await expect(page.getByRole("heading", { name: "Check how renewal works" })).toBeVisible({
     timeout: 20000,
   });
-  await page.getByRole("button", { name: "Show in document" }).first().click();
+  const renewal = page.getByRole("article", { name: "Check how renewal works" });
+  await renewal.getByRole("button", { name: "Show in document" }).click();
   await expect(page.locator(".source-highlight.active").first()).toContainText(
     "renews automatically",
   );
@@ -99,18 +100,19 @@ test("filters findings, navigates both ways, and exports a complete private repo
 }) => {
   await analyzeSample(page);
   await page.getByRole("button", { name: "High impact", exact: true }).click();
-  await expect(
-    page.getByText("No findings in this category. This does not establish the absence of risk."),
-  ).toBeVisible();
+  await expect(page.locator(".finding-card.impact-high").first()).toBeVisible();
+  await expect(page.locator(".finding-card:not(.impact-high)")).toHaveCount(0);
   await page.getByRole("button", { name: "Review", exact: true }).click();
-  await expect(page.getByRole("heading", { name: "Check how renewal works" })).toBeVisible();
-  await page.getByRole("button", { name: "Show in document" }).first().click();
+  const review = page.locator(".finding-card.impact-review").first();
+  await expect(review).toBeVisible();
+  const title = await review.getByRole("heading").textContent();
+  await review.getByRole("button", { name: "Show in document" }).click();
   await page.locator(".source-highlight.active").first().click();
-  await expect(page.getByRole("heading", { name: "Check how renewal works" })).toBeVisible();
+  await expect(page.getByRole("heading", { name: title!, exact: true })).toBeVisible();
   const downloadEvent = page.waitForEvent("download");
-  await page.getByRole("button", { name: "Download private report as JSON" }).click();
+  await page.getByRole("button", { name: "Download report as JSON" }).click();
   const download = await downloadEvent;
-  expect(download.suggestedFilename()).toMatch(/^terms-of-surrender-.*\.json$/);
+  expect(download.suggestedFilename()).toBe("contract-analysis.json");
   const path = await download.path();
   expect(path).not.toBeNull();
   const report = JSON.parse(await readFile(path!, "utf8")) as AnalysisView;
@@ -132,9 +134,9 @@ test("copies a question or gives a usable clipboard fallback", async ({
     await context.grantPermissions(["clipboard-read", "clipboard-write"]);
   await analyzeSample(page);
   const card = page.locator(".finding-card").first();
-  await card.getByText("A question worth asking").click();
+  await card.locator(".question-details > summary").click();
   const question = await card.locator(".question-details > p").first().textContent();
-  await card.getByRole("button", { name: "Copy question" }).click();
+  await card.getByRole("button", { name: /^Copy (question|action)$/ }).click();
   if (browserName === "chromium") {
     await expect(card.getByRole("button", { name: "Copied", exact: true })).toBeVisible();
     expect(await page.evaluate(() => navigator.clipboard.readText())).toBe(question);
@@ -142,7 +144,9 @@ test("copies a question or gives a usable clipboard fallback", async ({
     await expect(
       card
         .getByRole("button", { name: "Copied", exact: true })
-        .or(card.getByText("Clipboard unavailable. Select the question above to copy it.")),
+        .or(
+          card.getByText(/Clipboard unavailable\. Select the (question|action) above to copy it\./),
+        ),
     ).toBeVisible();
   }
 });
@@ -167,11 +171,7 @@ test("reports no matches without claiming the agreement is safe", async ({ page 
   await expect(page.getByRole("heading", { name: "No topics flagged. Keep reading." })).toBeVisible(
     { timeout: 20000 },
   );
-  await expect(
-    page.getByText(
-      "This is not a safety endorsement. Review the document and the analysis limitations before deciding.",
-    ),
-  ).toBeVisible();
+  await expect(page.getByText(/This is not a safety endorsement/)).toBeVisible();
   await openFindings(page);
 });
 

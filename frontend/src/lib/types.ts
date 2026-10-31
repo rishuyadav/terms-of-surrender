@@ -66,6 +66,15 @@ export interface AnalysisView {
   context: ContractContext;
   report: Report | null;
   errorCode: string | null;
+  selectedMode?: AnalysisMode;
+  previewReason?:
+    | "FREE_ANALYSES_EXHAUSTED"
+    | "DOCUMENT_TOO_LARGE"
+    | "VISITOR_UNVERIFIED"
+    | "AI_UNAVAILABLE"
+    | "AI_DISABLED"
+    | null;
+  qaAvailable?: boolean;
   createdAt: string;
   expiresAt: string;
   version: number;

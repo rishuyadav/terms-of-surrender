@@ -32,6 +32,7 @@ It is not a law firm and not an autonomous AI lawyer. It tells you what the cont
 - It doesn't know what law applies to your specific situation.
 - It can't read scanned PDFs or images (text-based PDFs and DOCX only).
 - It doesn't store your documents after 24 hours, and it has no account system.
+- Public AI demos can retain a keyed network identifier and usage counters beyond report expiry to prevent resetting free allowances. Raw IPs are not stored in that quota ledger.
 
 ---
 
@@ -85,6 +86,8 @@ With a model configured, you get:
 - Server-derived priorities and action checklist
 
 **Privacy note:** Extracted text is sent to your configured provider. Review that provider's data retention and regional processing terms before uploading private documents. The test suite never calls a paid provider.
+
+For the public Vercel/Render deployment, enable the persistent IP-limited demo: five AI analyses and eight independent AI questions per network, with no automatic reset. No quota counters or advance warnings are shown. Further analyses use keyword preview; further questions receive an inline service message without hiding the Q&A controls. See [deployment instructions](docs/operations.md#public-ai-demo-vercel--render) before enabling the provider in production. Local AI remains unrestricted unless `AI_DEMO_ENABLED=true`.
 
 ---
 
@@ -145,7 +148,7 @@ The four original fictional samples contain membership/plan schedules and, for f
 | File parsing | Isolated worker processes (Apache PDFBox, Apache POI) |
 | Session | Anonymous cookie-based, 24-hour retention |
 
-Anonymous sessions expire automatically. No PII is required or collected.
+Anonymous sessions expire automatically. No account or identifying information is required from the user. Public-demo quota identifiers are pseudonymous network data, not a claim of complete anonymity.
 
 ---
 

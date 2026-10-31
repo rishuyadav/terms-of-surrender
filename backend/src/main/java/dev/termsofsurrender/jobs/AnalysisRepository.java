@@ -5,6 +5,8 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import dev.termsofsurrender.AppProperties;
 import dev.termsofsurrender.analysis.Analysis;
 import dev.termsofsurrender.api.ApiException;
+import dev.termsofsurrender.privacy.AiDemoQuota;
+import dev.termsofsurrender.privacy.VisitorIdentity;
 import java.sql.ResultSet;
 import java.sql.SQLException;
 import java.sql.Timestamp;
@@ -24,23 +26,40 @@ public class AnalysisRepository {
     private final ObjectMapper mapper;
     private final AppProperties properties;
     private final TransactionTemplate transactions;
+    private final AiDemoQuota quota;
 
     public AnalysisRepository(
             JdbcTemplate jdbc,
             ObjectMapper mapper,
             AppProperties properties,
-            TransactionTemplate transactions) {
+            TransactionTemplate transactions,
+            AiDemoQuota quota) {
         this.jdbc = jdbc;
         this.mapper = mapper;
         this.properties = properties;
         this.transactions = transactions;
+        this.quota = quota;
     }
 
     public Analysis.View create(String sessionHash, Analysis.Input input) {
+        return create(sessionHash, input, Optional.empty(), null);
+    }
+
+    public Analysis.View create(
+            String sessionHash,
+            Analysis.Input input,
+            Optional<VisitorIdentity.Verified> identity,
+            String requestKey) {
         return transactions.execute(
                 transaction -> {
-                    jdbc.queryForObject(
-                            "SELECT id FROM queue_guard WHERE id = 1 FOR UPDATE", Integer.class);
+                    quota.lock();
+                    quota.consumeNonce(identity);
+                    String payloadHash = dev.termsofsurrender.privacy.Sessions.hash(json(input));
+                    var previous = quota.previous(sessionHash, requestKey, "ANALYSIS", payloadHash);
+                    if (previous.isPresent()) {
+                        return find(previous.get().analysisId(), sessionHash)
+                                .orElseThrow(ApiException::notFound);
+                    }
                     Instant now = Instant.now();
                     int active =
                             count(
@@ -70,21 +89,28 @@ public class AnalysisRepository {
                                 "Analysis is busy right now. Please try again shortly.");
                     }
                     UUID id = UUID.randomUUID();
+                    var decision =
+                            quota.analysis(
+                                    properties.model().enabled(), identity, input.document());
+                    quota.recordAnalysis(
+                            sessionHash, requestKey, payloadHash, id, identity, decision);
                     jdbc.update(
                             "INSERT INTO analysis_admissions (id, session_hash, admitted_at) VALUES (?, ?, ?)",
                             id.toString(),
                             sessionHash,
                             Timestamp.from(now));
                     jdbc.update(
-                            "INSERT INTO analyses (id, session_hash, status, stage, input_json, created_at, expires_at) VALUES (?, ?, ?, ?, ?, ?, ?)",
+                            "INSERT INTO analyses (id, session_hash, status, stage, input_json, created_at, expires_at, selected_mode, preview_reason, qa_available) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
                             id.toString(),
                             sessionHash,
                             "QUEUED",
                             "Waiting for analysis",
                             json(input),
                             Timestamp.from(now),
-                            Timestamp.from(
-                                    now.plus(properties.retentionHours(), ChronoUnit.HOURS)));
+                            Timestamp.from(now.plus(properties.retentionHours(), ChronoUnit.HOURS)),
+                            decision.mode().name(),
+                            decision.reason(),
+                            properties.model().enabled());
                     return find(id, sessionHash).orElseThrow();
                 });
     }
@@ -117,11 +143,12 @@ public class AnalysisRepository {
             if (changed == 1) {
                 return jdbc
                         .query(
-                                "SELECT input_json FROM analyses WHERE id = ? AND status = 'PROCESSING'",
+                                "SELECT input_json, selected_mode FROM analyses WHERE id = ? AND status = 'PROCESSING'",
                                 (row, index) ->
                                         new Job(
                                                 UUID.fromString(id),
-                                                read(row.getString(1), Analysis.Input.class)),
+                                                read(row.getString(1), Analysis.Input.class),
+                                                Analysis.Mode.valueOf(row.getString(2))),
                                 id)
                         .stream()
                         .findFirst();
@@ -153,6 +180,17 @@ public class AnalysisRepository {
                 id.toString());
     }
 
+    public void completePreview(UUID id, Analysis.Report report, String reason) {
+        transactions.executeWithoutResult(
+                transaction -> {
+                    jdbc.update(
+                            "UPDATE analyses SET selected_mode = 'RULE_BASED_PREVIEW', preview_reason = ?, progress_json = NULL WHERE id = ? AND status = 'PROCESSING'",
+                            reason,
+                            id.toString());
+                    complete(id, report);
+                });
+    }
+
     public void updateProgress(UUID id, Analysis.Progress progress) {
         Instant now = Instant.now();
         String stage =
@@ -172,22 +210,52 @@ public class AnalysisRepository {
     }
 
     public boolean delete(UUID id, String sessionHash) {
-        return jdbc.update(
-                        "DELETE FROM analyses WHERE id = ? AND session_hash = ?",
-                        id.toString(),
-                        sessionHash)
-                > 0;
+        return transactions.execute(
+                transaction -> {
+                    quota.lock();
+                    if (find(id, sessionHash).isEmpty()) {
+                        return false;
+                    }
+                    quota.releaseUnstarted(id);
+                    jdbc.update(
+                            "DELETE FROM ai_demo_requests WHERE analysis_id = ?", id.toString());
+                    return jdbc.update(
+                                    "DELETE FROM analyses WHERE id = ? AND session_hash = ?",
+                                    id.toString(),
+                                    sessionHash)
+                            > 0;
+                });
     }
 
     public void cleanup() {
-        Instant now = Instant.now();
-        jdbc.update("DELETE FROM analyses WHERE expires_at <= ?", Timestamp.from(now));
-        jdbc.update(
-                "DELETE FROM analysis_admissions WHERE admitted_at <= ?",
-                Timestamp.from(now.minus(1, ChronoUnit.HOURS)));
-        jdbc.update(
-                "UPDATE analyses SET status = 'FAILED', stage = 'Analysis timed out; please submit again', error_code = 'WORKER_TIMEOUT', lease_until = NULL, version = version + 1 WHERE status = 'PROCESSING' AND lease_until < ?",
-                Timestamp.from(now));
+        transactions.executeWithoutResult(
+                transaction -> {
+                    quota.lock();
+                    Instant now = Instant.now();
+                    var expired =
+                            jdbc.queryForList(
+                                    "SELECT id FROM analyses WHERE expires_at <= ? OR (status = 'PROCESSING' AND lease_until < ?)",
+                                    String.class,
+                                    Timestamp.from(now),
+                                    Timestamp.from(now));
+                    expired.forEach(id -> quota.releaseUnstarted(UUID.fromString(id)));
+                    jdbc.update(
+                            "DELETE FROM ai_demo_requests WHERE analysis_id IN (SELECT id FROM analyses WHERE expires_at <= ?)",
+                            Timestamp.from(now));
+                    jdbc.update(
+                            "DELETE FROM ai_demo_requests WHERE created_at <= ?",
+                            Timestamp.from(
+                                    now.minus(properties.retentionHours(), ChronoUnit.HOURS)));
+                    jdbc.update(
+                            "DELETE FROM ai_demo_nonces WHERE expires_at < ?", Timestamp.from(now));
+                    jdbc.update("DELETE FROM analyses WHERE expires_at <= ?", Timestamp.from(now));
+                    jdbc.update(
+                            "DELETE FROM analysis_admissions WHERE admitted_at <= ?",
+                            Timestamp.from(now.minus(1, ChronoUnit.HOURS)));
+                    jdbc.update(
+                            "UPDATE analyses SET status = 'FAILED', stage = 'Analysis timed out; please submit again', error_code = 'WORKER_TIMEOUT', lease_until = NULL, version = version + 1 WHERE status = 'PROCESSING' AND lease_until < ?",
+                            Timestamp.from(now));
+                });
     }
 
     private int count(String sql, Object... args) {
@@ -210,7 +278,10 @@ public class AnalysisRepository {
                 row.getTimestamp("created_at").toInstant(),
                 row.getTimestamp("expires_at").toInstant(),
                 row.getInt("version"),
-                progress == null ? null : read(progress, Analysis.Progress.class));
+                progress == null ? null : read(progress, Analysis.Progress.class),
+                Analysis.Mode.valueOf(row.getString("selected_mode")),
+                row.getString("preview_reason"),
+                row.getBoolean("qa_available"));
     }
 
     private String json(Object value) {
@@ -229,5 +300,5 @@ public class AnalysisRepository {
         }
     }
 
-    public record Job(UUID id, Analysis.Input input) {}
+    public record Job(UUID id, Analysis.Input input, Analysis.Mode mode) {}
 }

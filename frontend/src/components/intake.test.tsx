@@ -49,6 +49,7 @@ describe("contract intake", () => {
     expect(createAnalysis).toHaveBeenCalledWith(
       { file: docx },
       { jurisdiction: "US", category: "FREELANCE", region: "" },
+      expect.any(String),
     );
     expect(push).toHaveBeenCalledWith("/report/docx-report");
   });
@@ -100,6 +101,7 @@ describe("contract intake", () => {
     expect(createAnalysis).toHaveBeenLastCalledWith(
       expect.objectContaining({ text: expect.any(String) }),
       { jurisdiction: "INDIA", category: "FREELANCE", region: "" },
+      expect.any(String),
     );
   });
 

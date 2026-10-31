@@ -50,7 +50,11 @@ export default async function RootLayout({ children }: Readonly<{ children: Reac
   return (
     <html lang="en" data-scroll-behavior="smooth" {...(theme ? { "data-theme": theme } : {})}>
       <head>
-        <Script id="theme-init" strategy="beforeInteractive" dangerouslySetInnerHTML={{ __html: themeInitScript }} />
+        <Script
+          id="theme-init"
+          strategy="beforeInteractive"
+          dangerouslySetInnerHTML={{ __html: themeInitScript }}
+        />
       </head>
       <body>
         <a className="skip-link" href="#main">
