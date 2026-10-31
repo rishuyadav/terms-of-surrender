@@ -12,6 +12,7 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
+import dev.termsofsurrender.analysis.Analysis;
 import dev.termsofsurrender.analysis.AnalysisEngine;
 import dev.termsofsurrender.jobs.AnalysisRepository;
 import jakarta.servlet.http.Cookie;
@@ -73,6 +74,51 @@ class AnalysisApiTest {
                         .andExpect(jsonPath("$.status").value("QUEUED"))
                         .andReturn();
         return mapper.readTree(result.getResponse().getContentAsString()).path("id").asText();
+    }
+
+    @Test
+    void persistsPartialFindingsWithoutPublishingAFinalReport() throws Exception {
+        Cookie owner = session();
+        String id = create(owner);
+        var job = repository.claim().orElseThrow();
+        var report = engine.analyze(job.input());
+        var progress = new Analysis.Progress(1, 2, report.findings());
+        repository.updateProgress(job.id(), progress);
+        mvc.perform(get("/api/analyses/" + id).cookie(owner))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.status").value("PROCESSING"))
+                .andExpect(jsonPath("$.report").doesNotExist())
+                .andExpect(jsonPath("$.progress.completedGroups").value(1))
+                .andExpect(jsonPath("$.progress.findings[0].evidence.quote").isNotEmpty());
+        repository.fail(job.id());
+        repository.updateProgress(job.id(), new Analysis.Progress(2, 2, report.findings()));
+        mvc.perform(get("/api/analyses/" + id).cookie(owner))
+                .andExpect(jsonPath("$.status").value("FAILED"))
+                .andExpect(jsonPath("$.report").doesNotExist())
+                .andExpect(jsonPath("$.progress.completedGroups").value(1));
+    }
+
+    @Test
+    void completedReportsClearProgressAndExpiredLeasesRejectProgressUpdates() throws Exception {
+        Cookie owner = session();
+        String id = create(owner);
+        var job = repository.claim().orElseThrow();
+        var report = engine.analyze(job.input());
+        repository.updateProgress(job.id(), new Analysis.Progress(1, 2, report.findings()));
+        repository.complete(job.id(), report);
+        mvc.perform(get("/api/analyses/" + id).cookie(owner))
+                .andExpect(jsonPath("$.status").value("COMPLETED"))
+                .andExpect(jsonPath("$.progress").doesNotExist());
+
+        String expiredId = create(owner);
+        var expiredJob = repository.claim().orElseThrow();
+        jdbc.update(
+                "UPDATE analyses SET lease_until = ? WHERE id = ?",
+                Timestamp.from(Instant.now().minusSeconds(1)),
+                expiredId);
+        repository.updateProgress(expiredJob.id(), new Analysis.Progress(1, 2, report.findings()));
+        mvc.perform(get("/api/analyses/" + expiredId).cookie(owner))
+                .andExpect(jsonPath("$.progress").doesNotExist());
     }
 
     @Test
@@ -211,6 +257,9 @@ class AnalysisApiTest {
         MvcResult stream =
                 mvc.perform(get("/api/analyses/" + id + "/events").cookie(owner))
                         .andExpect(request().asyncStarted())
+                        .andExpect(
+                                header().string("Cache-Control", "no-store, private, no-transform"))
+                        .andExpect(header().string("X-Accel-Buffering", "no"))
                         .andReturn();
         var job = repository.claim().orElseThrow();
         repository.complete(job.id(), engine.analyze(job.input()));

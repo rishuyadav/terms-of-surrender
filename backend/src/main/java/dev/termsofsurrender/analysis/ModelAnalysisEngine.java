@@ -19,6 +19,7 @@ import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.TimeoutException;
+import java.util.function.Consumer;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
@@ -188,6 +189,11 @@ public class ModelAnalysisEngine implements AnalysisEngine, AutoCloseable {
 
     @Override
     public Analysis.Report analyze(Analysis.Input input) {
+        return analyze(input, progress -> {});
+    }
+
+    @Override
+    public Analysis.Report analyze(Analysis.Input input, Consumer<Analysis.Progress> onProgress) {
         List<Analysis.Finding> findings = new ArrayList<>();
         Set<String> seen = new HashSet<>();
         int rejected = 0;
@@ -207,6 +213,7 @@ public class ModelAnalysisEngine implements AnalysisEngine, AutoCloseable {
         if (chunks.size() > 12) {
             throw new IllegalStateException("Document exceeds model request budget");
         }
+        onProgress.accept(new Analysis.Progress(0, chunks.size(), List.of()));
         for (int chunkIndex = 0; chunkIndex < chunks.size(); chunkIndex++) {
             List<Document.Block> chunk = chunks.get(chunkIndex);
             JsonNode response = request(input.context(), chunk, definitions);
@@ -297,6 +304,8 @@ public class ModelAnalysisEngine implements AnalysisEngine, AutoCloseable {
                     rejected++;
                 }
             }
+            onProgress.accept(
+                    new Analysis.Progress(chunkIndex + 1, chunks.size(), List.copyOf(findings)));
         }
         // Derive priorities server-side from all accepted findings.
         // HIGH findings first (appearance order), then REVIEW, up to 3 total.

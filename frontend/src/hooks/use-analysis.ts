@@ -14,6 +14,7 @@ export function useAnalysis(id: string, retry: number) {
     let stream: EventSource | null = null;
     let poll: ReturnType<typeof setTimeout> | null = null;
     let consecutiveFailures = 0;
+    let lastVersion = -1;
 
     function done(snapshot: AnalysisView) {
       return snapshot.status === "COMPLETED" || snapshot.status === "FAILED";
@@ -21,6 +22,9 @@ export function useAnalysis(id: string, retry: number) {
 
     function accept(snapshot: AnalysisView) {
       if (controller.signal.aborted) return;
+      // A delayed snapshot must not replace newer findings or a completed report.
+      if (snapshot.version < lastVersion) return;
+      lastVersion = snapshot.version;
       setView(snapshot);
       setError(null);
       setReconnecting(false);

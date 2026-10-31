@@ -28,6 +28,11 @@ public class RequestSecurity extends OncePerRequestFilter {
         response.setHeader("Referrer-Policy", "no-referrer");
         if (request.getRequestURI().startsWith("/api/")) {
             response.setHeader("Cache-Control", "no-store, private");
+            if (request.getRequestURI().matches("/api/analyses/[^/]+/events")) {
+                // Gzip buffering can hold SSE milestones until the stream ends.
+                response.setHeader("Cache-Control", "no-store, private, no-transform");
+                response.setHeader("X-Accel-Buffering", "no");
+            }
             if (!SAFE_METHODS.contains(request.getMethod())
                     && !properties.allowedOrigins().contains(request.getHeader("Origin"))) {
                 response.setStatus(403);

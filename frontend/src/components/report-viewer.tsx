@@ -31,6 +31,7 @@ import { Brand } from "./brand";
 import { ThemeToggle } from "./theme-toggle";
 import { FindingCard } from "./finding-card";
 import { SourceHighlight } from "./source-highlight";
+import { AnalysisProgress } from "./analysis-progress";
 import { useAnalysis } from "@/hooks/use-analysis";
 import { deleteAnalysis, askContract } from "@/lib/api";
 import type { QaAnswer } from "@/lib/api";
@@ -65,7 +66,9 @@ export function ReportViewer({ id }: { id: string }) {
   const [qaAsking, setQaAsking] = useState(false);
   const [qaAnswers, setQaAnswers] = useState<QaAnswer[]>([]);
   const [qaError, setQaError] = useState<string | null>(null);
-  const findings = view?.report?.findings ?? [];
+  const findings = view?.report?.findings ?? view?.progress?.findings ?? [];
+  const inProgress = view?.status === "QUEUED" || view?.status === "PROCESSING";
+  const incompleteFindings = view?.status !== "COMPLETED" && findings.length > 0;
   const consequencePreview = view?.report?.mode === "RULE_BASED_PREVIEW"
     && ["preview-2", "preview-2.1"].includes(view.report.engineVersion);
   const quietTopics = consequencePreview && filter === "ALL"
@@ -115,6 +118,15 @@ export function ReportViewer({ id }: { id: string }) {
     const triggerId = overlap?.triggerId;
     setOverlap(null);
     if (triggerId) requestAnimationFrame(() => document.getElementById(triggerId)?.focus());
+  }
+
+  function readSource() {
+    setMobilePane("source");
+    requestAnimationFrame(() => {
+      const source = document.getElementById("source-title");
+      source?.focus({ preventScroll: true });
+      source?.scrollIntoView({ block: "start" });
+    });
   }
 
   async function removeReport() {
@@ -173,7 +185,7 @@ export function ReportViewer({ id }: { id: string }) {
   }
 
   function downloadReport() {
-    if (!view || !view.report) return;
+    if (!view || view.status !== "COMPLETED" || !view.report) return;
     const reportFindings = view.report.findings;
     const checklist = view.report.checklist ?? [];
     const html = `<!DOCTYPE html>
@@ -243,7 +255,7 @@ ${reportFindings.map((f, i) => {
   }
 
   function downloadJson() {
-    if (!view) return;
+    if (!view || view.status !== "COMPLETED") return;
     const url = URL.createObjectURL(
       new Blob([JSON.stringify(view, null, 2)], { type: "application/json" }),
     );
@@ -343,6 +355,7 @@ ${reportFindings.map((f, i) => {
                   aria-label="Download report as HTML"
                   title="Download report as HTML"
                   onClick={downloadReport}
+                  disabled={view.status !== "COMPLETED"}
                 >
                   <Download size={18} />
                 </button>
@@ -352,6 +365,7 @@ ${reportFindings.map((f, i) => {
                   aria-label="Download report as JSON"
                   title="Download report as JSON"
                   onClick={downloadJson}
+                  disabled={view.status !== "COMPLETED"}
                 >
                   JSON
                 </button>
@@ -379,42 +393,8 @@ ${reportFindings.map((f, i) => {
               </p>
             )}
 
-            {view.status === "QUEUED" || view.status === "PROCESSING" ? (
-              <section className="processing-card" role="status">
-                <div className="processing-icon">
-                  <FileSearch size={26} />
-                </div>
-                <h2>
-                  {view.status === "QUEUED"
-                    ? "Your agreement is in the queue."
-                    : "Reading between the lines."}
-                </h2>
-                <p className="processing-stage">
-                  {reconnecting ? "Reconnecting…" : view.stage}
-                  {!reconnecting && <span className="stage-dots" aria-hidden="true" />}
-                </p>
-                {view.status === "PROCESSING" && !view.report && (
-                  <p className="processing-hint">
-                    AI analysis may take up to a minute. You can refresh this page without losing
-                    progress.
-                  </p>
-                )}
-                {view.status === "QUEUED" && (
-                  <p className="processing-hint">
-                    You can refresh this page without losing progress.
-                  </p>
-                )}
-                <div className="processing-steps">
-                  <span className="complete">
-                    <Check size={14} /> Document received
-                  </span>
-                  <span>
-                    <LoaderCircle size={14} className="spin" />{" "}
-                    {view.status === "QUEUED" ? "Waiting in queue" : "Checking terms"}
-                  </span>
-                  <span className="muted">Source-backed report</span>
-                </div>
-              </section>
+            {inProgress ? (
+              <AnalysisProgress view={view} onReadSource={readSource} />
             ) : view.status === "FAILED" ? (
               <section className="processing-card failed" role="alert">
                 <CircleAlert size={28} />
@@ -695,7 +675,7 @@ ${reportFindings.map((f, i) => {
                 <div className="pane-header">
                   <div>
                     <FileText size={16} />
-                    <h2 id="source-title">The original wording</h2>
+                    <h2 id="source-title" tabIndex={-1}>The original wording</h2>
                   </div>
                   <span>
                     {view.document.sourceType} ·{" "}
@@ -841,13 +821,13 @@ ${reportFindings.map((f, i) => {
                 </div>
               </section>
 
-              <section className="findings-pane" aria-labelledby="findings-title">
+              <section className={`findings-pane${inProgress || incompleteFindings ? " live-findings" : ""}`} aria-labelledby="findings-title">
                 <div className="pane-header">
                   <div>
                     <ListFilter size={16} />
                     <h2 id="findings-title">In plain English</h2>
                   </div>
-                  <span>{findings.length} FINDINGS</span>
+                  <span>{inProgress && findings.length === 0 ? "REVIEW IN PROGRESS" : `${findings.length} FINDINGS${incompleteFindings ? " SO FAR" : ""}`}</span>
                   {findings.length > 0 && (
                     <button
                       type="button"
@@ -859,6 +839,16 @@ ${reportFindings.map((f, i) => {
                     </button>
                   )}
                 </div>
+                {incompleteFindings && (
+                  <div className="partial-findings-notice">
+                    <ShieldCheck size={15} aria-hidden="true" />
+                    <p>
+                      <strong>{view.status === "FAILED" ? "Incomplete analysis." : "Early findings, not the full report."}</strong>{" "}
+                      These quotes were checked against your source, but interpretations can still be wrong.
+                      {view.status === "FAILED" ? " Remaining text groups were not fully reviewed. Do not treat these findings as a complete assessment." : " More findings may follow. Final priorities and the checklist appear when the review finishes."}
+                    </p>
+                  </div>
+                )}
                 {findings.length > 0 && (
                   <div className="finding-filters" role="group" aria-label="Filter findings">
                     {(["ALL", "HIGH", "REVIEW", "FAVORABLE"] as const).map((value) => (
@@ -893,13 +883,22 @@ ${reportFindings.map((f, i) => {
                           ? view.report?.mode === "RULE_BASED_PREVIEW"
                             ? "No supported clause patterns matched. This is not a safety endorsement — review the full source text and check the limitations below before deciding."
                             : "The AI found no specific concerns to highlight. Review the source text and the limitations below before relying on this result."
-                          : "You can read the extracted source while the analysis runs."}
+                          : view.status === "FAILED"
+                            ? "No complete report is available. Your extracted source is still available to read."
+                            : "Findings appear after each text group is reviewed and its source quotes are checked."}
                       </p>
+                      {inProgress && (
+                        <button type="button" className="text-button" onClick={readSource}>
+                          <BookOpen size={14} /> Read the source now
+                        </button>
+                      )}
                     </div>
                   ) : findings.filter((finding) => filter === "ALL" || finding.impact === filter)
                       .length === 0 ? (
                     <p className="no-filter-results">
-                      No findings in this category. This does not establish the absence of risk.
+                      {incompleteFindings
+                        ? "No findings in this category so far. The analysis is incomplete; this does not establish the absence of risk."
+                        : "No findings in this category. This does not establish the absence of risk."}
                     </p>
                   ) : (
                     <>

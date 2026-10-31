@@ -20,6 +20,8 @@ The canonical text is split into ordered blocks with stable IDs, page numbers, a
 
 Jobs are durable database records with explicit state transitions. Workers atomically claim queued jobs; a lease bounds processing ownership. Reports and status are persisted. Browser streaming is an enhancement: refreshing or reconnecting retrieves the current snapshot. Processing does not depend on an open browser connection.
 
+AI analysis persists cumulative accepted findings and completed/total text-group counts in a separate progress snapshot after each fully received and validated group. Prompts, chunk boundaries, model budgets, validation, and final report assembly are unchanged. Partial findings are explicitly incomplete; failures retain that distinction. Completion atomically publishes the final report and clears progress. Progress updates honor the processing lease, expiry, and deletion boundaries.
+
 ## Security and privacy
 
 - Anonymous sessions use random HttpOnly SameSite cookies; only token hashes are stored.

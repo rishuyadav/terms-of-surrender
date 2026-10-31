@@ -1,6 +1,8 @@
 package dev.termsofsurrender.jobs;
 
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.eq;
+import static org.mockito.Mockito.doThrow;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
@@ -14,6 +16,7 @@ import dev.termsofsurrender.documents.DocumentExtractor;
 import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
+import java.util.function.Consumer;
 import org.junit.jupiter.api.Test;
 
 class AnalysisWorkerTest {
@@ -38,11 +41,32 @@ class AnalysisWorkerTest {
                                 Analysis.Jurisdiction.INDIA, Analysis.Category.FREELANCE, ""));
         UUID id = UUID.randomUUID();
         when(repository.claim()).thenReturn(Optional.of(new AnalysisRepository.Job(id, input)));
-        when(engine.analyze(input))
+        when(engine.analyze(eq(input), any()))
                 .thenThrow(new IllegalStateException("Private provider details must not escape"));
         new AnalysisWorker(repository, engine, config(true)).processNext();
         verify(repository).fail(id);
         verify(repository, never()).complete(any(), any());
+    }
+
+    @Test
+    void aTransientProgressFailureDoesNotInterruptFinalReportPersistence() {
+        UUID id = UUID.randomUUID();
+        var input = mock(Analysis.Input.class);
+        var report = mock(Analysis.Report.class);
+        when(repository.claim()).thenReturn(Optional.of(new AnalysisRepository.Job(id, input)));
+        doThrow(new IllegalStateException("Progress storage temporarily unavailable"))
+                .when(repository)
+                .updateProgress(eq(id), any());
+        when(engine.analyze(eq(input), any()))
+                .thenAnswer(
+                        invocation -> {
+                            Consumer<Analysis.Progress> callback = invocation.getArgument(1);
+                            callback.accept(new Analysis.Progress(0, 1, List.of()));
+                            return report;
+                        });
+        new AnalysisWorker(repository, engine, config(true)).processNext();
+        verify(repository).complete(id, report);
+        verify(repository, never()).fail(any());
     }
 
     @Test

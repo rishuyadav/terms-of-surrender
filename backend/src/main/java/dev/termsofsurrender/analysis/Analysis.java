@@ -74,6 +74,9 @@ public final class Analysis {
             List<String> priorities,
             List<ChecklistItem> checklist) {}
 
+    /** Accepted findings from completed groups; never a substitute for a complete report. */
+    public record Progress(int completedGroups, int totalGroups, List<Finding> findings) {}
+
     public record View(
             UUID id,
             Status status,
@@ -84,5 +87,6 @@ public final class Analysis {
             String errorCode,
             Instant createdAt,
             Instant expiresAt,
-            int version) {}
+            int version,
+            Progress progress) {}
 }

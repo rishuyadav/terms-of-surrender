@@ -69,6 +69,11 @@ export interface AnalysisView {
   createdAt: string;
   expiresAt: string;
   version: number;
+  progress?: {
+    completedGroups: number;
+    totalGroups: number;
+    findings: Finding[];
+  } | null;
 }
 
 export interface SessionConfig {

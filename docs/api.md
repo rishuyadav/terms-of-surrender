@@ -41,6 +41,7 @@ Returns `202 Accepted`, a `Location` header, and an analysis snapshot. Snapshot 
 - `document`: canonical text, source blocks, page count, extraction warnings, fingerprint.
 - `context`: user-supplied location and category; not a legal applicability determination.
 - `report`: null until complete, then mode, engine version, findings, limitations.
+- `progress`: optional/null; in AI mode, `completedGroups`, `totalGroups`, and cumulative accepted `findings` from fully received, validated text groups. These are incomplete results, not a final report. Failed jobs may retain early findings; completed jobs clear progress in favor of the final report.
 - `errorCode`: safe error code for failed jobs.
 - `createdAt`, `expiresAt`: ISO 8601 timestamps.
 
@@ -61,7 +62,9 @@ Every DOCX snapshot includes warnings about omitted layout/content: headers, foo
 - `GET /api/analyses/{uuid}` retrieves the current persisted snapshot.
 - `GET /api/analyses/{uuid}/events` opens a bounded SSE connection.
 
-SSE sends named `snapshot` events when the persisted version changes, with the version as the event ID. Connections heartbeat and terminate on final states; clients can reconnect or retrieve the snapshot directly. An `unavailable` event signals deletion or expiry. This initial release streams state snapshots, not speculative token output or clause-by-clause findings.
+SSE sends named `snapshot` events when the persisted version changes, with the version as the event ID. Connections heartbeat and terminate on final states; clients can reconnect or retrieve the snapshot directly. An `unavailable` event signals deletion or expiry. AI snapshots include source-checked findings after each completed text group, never speculative tokens. Summary, priorities, checklist, Q&A, and full-report exports remain completion-only. Quote validation establishes source location, not interpretation accuracy.
+
+Event responses additionally use `Cache-Control: no-store, private, no-transform` and `X-Accel-Buffering: no` to avoid compression/proxy buffering. Normal API responses retain their existing caching policy. Ingress must still be configured to stream SSE promptly.
 
 All operations verify ownership, including streams. Unknown, expired, and other-session reports return the same `404` to avoid revealing existence.
 

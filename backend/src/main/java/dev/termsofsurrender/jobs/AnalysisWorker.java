@@ -1,7 +1,9 @@
 package dev.termsofsurrender.jobs;
 
 import dev.termsofsurrender.AppProperties;
+import dev.termsofsurrender.analysis.Analysis;
 import dev.termsofsurrender.analysis.AnalysisEngine;
+import java.util.UUID;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.scheduling.annotation.Scheduled;
@@ -32,7 +34,11 @@ public class AnalysisWorker {
                         job -> {
                             try {
                                 repository.updateStage(job.id(), engine.progressStage());
-                                repository.complete(job.id(), engine.analyze(job.input()));
+                                repository.complete(
+                                        job.id(),
+                                        engine.analyze(
+                                                job.input(),
+                                                progress -> publishProgress(job.id(), progress)));
                             } catch (Exception exception) {
                                 LOG.warn(
                                         "Analysis {} failed with {}: {}",
@@ -42,6 +48,19 @@ public class AnalysisWorker {
                                 repository.fail(job.id());
                             }
                         });
+    }
+
+    private void publishProgress(UUID id, Analysis.Progress progress) {
+        try {
+            repository.updateProgress(id, progress);
+        } catch (RuntimeException exception) {
+            // Live feedback is an enhancement; a transient progress-write failure must not
+            // interrupt the unchanged analysis or prevent final report persistence.
+            LOG.warn(
+                    "Analysis {} progress update unavailable ({})",
+                    id,
+                    exception.getClass().getSimpleName());
+        }
     }
 
     @Scheduled(fixedDelay = 60_000)

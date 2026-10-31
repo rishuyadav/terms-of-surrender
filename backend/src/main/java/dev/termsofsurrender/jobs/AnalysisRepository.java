@@ -140,7 +140,7 @@ public class AnalysisRepository {
     public void complete(UUID id, Analysis.Report report) {
         Instant now = Instant.now();
         jdbc.update(
-                "UPDATE analyses SET status = 'COMPLETED', stage = 'Analysis complete', report_json = ?, lease_until = NULL, version = version + 1 WHERE id = ? AND status = 'PROCESSING' AND expires_at > ? AND lease_until > ?",
+                "UPDATE analyses SET status = 'COMPLETED', stage = 'Analysis complete', report_json = ?, progress_json = NULL, lease_until = NULL, version = version + 1 WHERE id = ? AND status = 'PROCESSING' AND expires_at > ? AND lease_until > ?",
                 json(report),
                 id.toString(),
                 Timestamp.from(now),
@@ -151,6 +151,24 @@ public class AnalysisRepository {
         jdbc.update(
                 "UPDATE analyses SET status = 'FAILED', stage = 'Analysis could not be completed', error_code = 'ANALYSIS_FAILED', lease_until = NULL, version = version + 1 WHERE id = ? AND status = 'PROCESSING'",
                 id.toString());
+    }
+
+    public void updateProgress(UUID id, Analysis.Progress progress) {
+        Instant now = Instant.now();
+        String stage =
+                progress.completedGroups() == progress.totalGroups()
+                        ? "Preparing your complete report"
+                        : "Reviewing text group "
+                                + (progress.completedGroups() + 1)
+                                + " of "
+                                + progress.totalGroups();
+        jdbc.update(
+                "UPDATE analyses SET progress_json = ?, stage = ?, version = version + 1 WHERE id = ? AND status = 'PROCESSING' AND expires_at > ? AND lease_until > ?",
+                json(progress),
+                stage,
+                id.toString(),
+                Timestamp.from(now),
+                Timestamp.from(now));
     }
 
     public boolean delete(UUID id, String sessionHash) {
@@ -180,6 +198,7 @@ public class AnalysisRepository {
     private Analysis.View view(ResultSet row, int index) throws SQLException {
         Analysis.Input input = read(row.getString("input_json"), Analysis.Input.class);
         String report = row.getString("report_json");
+        String progress = row.getString("progress_json");
         return new Analysis.View(
                 UUID.fromString(row.getString("id")),
                 Analysis.Status.valueOf(row.getString("status")),
@@ -190,7 +209,8 @@ public class AnalysisRepository {
                 row.getString("error_code"),
                 row.getTimestamp("created_at").toInstant(),
                 row.getTimestamp("expires_at").toInstant(),
-                row.getInt("version"));
+                row.getInt("version"),
+                progress == null ? null : read(progress, Analysis.Progress.class));
     }
 
     private String json(Object value) {

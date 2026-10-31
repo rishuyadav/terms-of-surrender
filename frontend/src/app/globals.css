@@ -1381,6 +1381,141 @@ summary::-webkit-details-marker {
 .empty-state .secondary-button {
   margin-top: 10px;
 }
+.analysis-progress {
+  margin: 24px 0;
+  padding: 27px 30px 22px;
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  background: linear-gradient(115deg, var(--sage), var(--surface) 75%);
+}
+.analysis-progress-heading {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+}
+.analysis-progress-emblem {
+  flex-shrink: 0;
+  width: 46px;
+  height: 46px;
+  border: 1px solid var(--line);
+  border-radius: 50%;
+  display: grid;
+  place-items: center;
+  color: var(--green);
+  background: var(--surface);
+}
+.analysis-progress h2 {
+  font-family: "Libre Caslon Display", Georgia, serif;
+  font-size: clamp(25px, 3vw, 32px);
+  font-weight: 400;
+  line-height: 1.15;
+  margin: 6px 0 0;
+  color: var(--ink);
+}
+.analysis-progress .label-caption {
+  color: var(--green);
+  font-size: 9px;
+}
+.analysis-progress-count {
+  margin-left: auto;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  flex-shrink: 0;
+  padding: 7px 10px;
+  border-radius: 20px;
+  border: 1px solid var(--line);
+  background: var(--surface);
+  color: var(--green);
+  font-size: 11px;
+}
+.analysis-progress-detail {
+  display: flex;
+  justify-content: space-between;
+  gap: 12px;
+  margin: 22px 0 9px;
+  font-size: 12px;
+  color: var(--muted);
+}
+.analysis-progress-detail > span:last-child:not(:first-child) {
+  flex-shrink: 0;
+  font-variant-numeric: tabular-nums;
+}
+.analysis-progress-track {
+  height: 5px;
+  border-radius: 8px;
+  background: var(--line);
+  overflow: hidden;
+}
+.analysis-progress-track > span {
+  display: block;
+  height: 100%;
+  background: var(--green);
+  border-radius: inherit;
+  transition: width 0.45s ease-out;
+}
+.analysis-progress-track.indeterminate > span {
+  width: 28%;
+  animation: review-travel 2.5s ease-in-out infinite alternate;
+}
+@keyframes review-travel {
+  from { transform: translateX(0); }
+  to { transform: translateX(258%); }
+}
+.analysis-progress-footer {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  margin-top: 15px;
+}
+.analysis-progress-footer p {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  margin: 0;
+  font-size: 11px;
+  line-height: 1.6;
+  color: var(--muted);
+}
+.analysis-progress-footer p svg { flex-shrink: 0; }
+.analysis-progress-footer .text-button {
+  flex-shrink: 0;
+  font-size: 11px;
+  color: var(--green);
+}
+.analysis-progress.has-findings {
+  padding-top: 20px;
+  padding-bottom: 18px;
+}
+.partial-findings-notice {
+  display: flex;
+  align-items: flex-start;
+  gap: 9px;
+  padding: 14px 20px;
+  border-bottom: 1px solid var(--line);
+  background: var(--sage);
+  color: var(--muted);
+  font-size: 11px;
+  line-height: 1.7;
+}
+.partial-findings-notice svg { flex-shrink: 0; margin-top: 2px; color: var(--green); }
+.partial-findings-notice p { margin: 0; }
+.partial-findings-notice strong { color: var(--ink); }
+.no-findings > .text-button { margin-top: 12px; color: var(--green); }
+@media (max-width: 700px) {
+  .analysis-progress { padding: 22px 18px 18px; }
+  .analysis-progress-heading { flex-wrap: wrap; gap: 12px; }
+  .analysis-progress-heading > div:nth-child(2) { flex: 1; }
+  .analysis-progress-count { margin-left: 58px; }
+  .analysis-progress-detail { flex-direction: column; gap: 4px; margin-top: 18px; }
+  .analysis-progress-footer { flex-direction: column; align-items: flex-start; gap: 10px; }
+  .analysis-progress-footer p { display: block; }
+  .analysis-progress-footer p svg { vertical-align: middle; }
+  .live-findings .pane-header { gap: 10px; }
+  .live-findings .pane-header > span { margin-left: auto; }
+  .live-findings .pane-header .copy-all-btn { display: none; }
+}
 .processing-card {
   text-align: center;
   border: 1px solid #dce2d0;
@@ -1866,7 +2001,7 @@ summary::-webkit-details-marker {
 /* High impact — soft red */
 [data-theme="dark"] .source-highlight.high {
   background: #3d2220;
-  color: #d97070;
+  color: #e08079;
 }
 [data-theme="dark"] .source-highlight.high:hover,
 [data-theme="dark"] .source-highlight.high.active {
@@ -1915,6 +2050,12 @@ summary::-webkit-details-marker {
 }
 [data-theme="dark"] .finding-card {
   border-color: #3a3a32;
+}
+[data-theme="dark"] .finding-card .source-link {
+  color: #e08d9e;
+}
+[data-theme="dark"] .pane-header .copy-all-btn {
+  color: var(--muted);
 }
 [data-theme="dark"] .finding-card.selected {
   border-color: #6a5830;
