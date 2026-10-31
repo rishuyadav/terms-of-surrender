@@ -22,6 +22,7 @@
 | `AI_DEMO_QUESTIONS_PER_IP` | `8` | Independent lifetime AI question allowance |
 | `AI_DEMO_MAX_CHARACTERS` | `30000` | Larger documents use full-text keyword preview without spending a credit |
 | `AI_DEMO_MAX_COMPLETION_TOKENS` | `4000` | Maximum completion tokens per AI analysis text-group request (800–8000) |
+| `AI_DEMO_EXEMPT_VISITOR_HASHES` | empty | Render-only comma-separated network HMACs exempt from lifetime AI quotas |
 | `API_BASE_URL`      | `http://localhost:8081`             | Frontend build-time proxy destination                      |
 | `WEB_PORT`          | `3000`                              | Compose loopback frontend port                             |
 
@@ -31,8 +32,8 @@ Spring Boot reads exported environment variables, not the root `.env` file autom
 
 ### Deployment order
 
-1. Back up the persistent PostgreSQL database. Deploy the backend migration/code with `MODEL_ENABLED=false` and `AI_DEMO_ENABLED=true`.
-2. Generate a strong random secret, for example `openssl rand -hex 32`. Set `AI_DEMO_PROXY_SECRET` to the **same value** in Render and Vercel's **Production** server-side environment. Never commit it or expose it with `NEXT_PUBLIC_`. Keep it stable: changing it creates new quota identities and resets allowances in practice.
+1. Back up the persistent PostgreSQL database. Keep `MODEL_ENABLED=false` during setup.
+2. Generate a strong random secret, for example `openssl rand -hex 32`. Set `AI_DEMO_PROXY_SECRET` to the **same value** in Render and Vercel's **Production** server-side environment. Set `AI_DEMO_ENABLED=true` on Render and deploy the backend migration/code. Never commit the secret or expose it with `NEXT_PUBLIC_`. Keep it stable: changing it creates new quota identities and resets allowances in practice.
 3. On Render set `ALLOWED_ORIGINS=https://terms-of-surrender.vercel.app`, `SECURE_COOKIES=true`, and confirm the JDBC PostgreSQL settings. Defaults are five analyses and eight questions; neither resets automatically.
 4. On Vercel set `API_BASE_URL=https://terms-of-surrender.onrender.com` and redeploy the frontend. Vercel supplies `VERCEL=1` and its ingress-overwritten `x-vercel-forwarded-for` client IP; our Next.js Proxy signs that identity and strips incoming forged `x-tos-visitor-*` headers. Do not manually set `VERCEL=1` on an untrusted non-Vercel public server.
 5. Verify text, PDF/DOCX, session cookies and SSE through the Vercel URL. Proxy keeps the existing external rewrite instead of introducing a Function Route Handler for uploads; its body clone is bounded at 12 MB. Confirm actual Vercel plan/ingress limits with a near-10-MB test upload before release.
@@ -40,6 +41,19 @@ Spring Boot reads exported environment variables, not the root `.env` file autom
 7. Test the boundary in a separate staging database (or dedicated test network): the fifth analysis uses AI and the sixth uses preview; the eighth question calls AI and the ninth returns `FREE_QUESTIONS_EXHAUSTED`. Refreshing, new browser sessions, report deletion after provider start and redeploys must not reset usage. Keep production/staging database and provider secrets isolated.
 
 `MODEL_ENABLED=false` is the emergency spending kill switch. Pending AI jobs then use clearly labeled `AI_DISABLED` preview, releasing reservations if provider work never started. Do not roll back to old application code with the model enabled: old workers do not enforce these quotas. The additive V3 migration need not be rolled back.
+
+### Private network exemption
+
+To exempt your current network from the five-analysis/eight-question lifetime quotas:
+
+1. Find your current **public** IP locally (not your Wi-Fi/LAN address). Use the same network and VPN state as your browser. Do not paste the IP or secret into chat, Git, or shell arguments.
+2. From the repository root, run `python3 scripts/generate-visitor-hash.py` in an interactive terminal. It prompts for the deployed `AI_DEMO_PROXY_SECRET` and public IP with echo disabled, then prints only the matching HMAC. Python 3 is required; the helper uses only its standard library and makes no network requests.
+3. Set `AI_DEMO_EXEMPT_VISITOR_HASHES=<printed hash>` on **Render only**, then redeploy. Multiple hashes may be comma-separated. Leave `AI_DEMO_ENABLED=true`; no additional Vercel setting is needed for the exemption.
+4. Submit a new small document through Vercel. Verified matching requests bypass both lifetime quota checks without incrementing counters. No exemption flag or network hash is returned to the browser.
+
+Signed identity verification, replay protection, idempotency, document/output limits, per-session admission limits, and Q&A concurrency limits still apply. Previously generated preview reports stay previews; submit a new document to obtain an AI report. Existing counters are not erased, so removing the exemption restores the earlier quota balance. Removing a hash takes effect for new admissions after redeployment; already admitted jobs may still finish.
+
+This is a **network exemption**, not owner authentication: everyone sharing the IPv4 address or IPv6 `/64` is exempt. If your ISP/VPN changes your public network, regenerate the hash. IPv4 and IPv6 networks require separate entries if your browser uses both. Changing the shared secret requires regenerating exemptions and also changes all public quota identities. Raw IPs are not stored by this feature, but hosting infrastructure has its own IP/logging policies.
 
 ### Accounting and privacy
 

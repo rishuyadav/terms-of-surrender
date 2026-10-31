@@ -105,6 +105,9 @@ public class AiDemoQuota {
                 || !ModelAnalysisEngine.withinRequestBudget(document)) {
             return new Decision(Analysis.Mode.RULE_BASED_PREVIEW, "DOCUMENT_TOO_LARGE");
         }
+        if (exempt(identity)) {
+            return new Decision(Analysis.Mode.MODEL_ASSISTED, null);
+        }
         return reserve(identity.get().visitorHash(), "analyses_used", properties.analysesPerIp())
                 ? new Decision(Analysis.Mode.MODEL_ASSISTED, null)
                 : new Decision(Analysis.Mode.RULE_BASED_PREVIEW, "FREE_ANALYSES_EXHAUSTED");
@@ -117,7 +120,10 @@ public class AiDemoQuota {
             UUID id,
             Optional<VisitorIdentity.Verified> identity,
             Decision decision) {
-        boolean reserved = properties.enabled() && decision.mode() == Analysis.Mode.MODEL_ASSISTED;
+        boolean reserved =
+                properties.enabled()
+                        && decision.mode() == Analysis.Mode.MODEL_ASSISTED
+                        && !exempt(identity);
         insertRequest(
                 owner, key, "ANALYSIS", payloadHash, id, identity, reserved ? "RESERVED" : "FREE");
     }
@@ -153,6 +159,7 @@ public class AiDemoQuota {
                     }
                     // Report exhaustion before rejecting preview-only Q&A.
                     if (properties.enabled()
+                            && !exempt(identity)
                             && used(identity.orElseThrow().visitorHash(), "questions_used")
                                     >= properties.questionsPerIp()) {
                         return new Question(
@@ -183,6 +190,7 @@ public class AiDemoQuota {
                         }
                     }
                     if (properties.enabled()
+                            && !exempt(identity)
                             && !reserve(
                                     identity.orElseThrow().visitorHash(),
                                     "questions_used",
@@ -257,6 +265,12 @@ public class AiDemoQuota {
         jdbc.update(
                 "UPDATE ai_demo_requests SET state = 'RELEASED' WHERE analysis_id = ? AND state = 'RESERVED'",
                 id.toString());
+    }
+
+    private boolean exempt(Optional<VisitorIdentity.Verified> identity) {
+        return identity.map(
+                        visitor -> properties.exemptVisitorHashes().contains(visitor.visitorHash()))
+                .orElse(false);
     }
 
     private int used(String visitor, String column) {
