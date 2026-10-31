@@ -17,9 +17,9 @@ No account required · Source-backed findings · Rules-based preview works witho
 
 ## See it in action
 
-**[▶ Watch the video demo](https://github.com/user-attachments/assets/4355cca4-dff5-4362-ae16-0ab49e83d315)**
+![Terms of Surrender demo: contract intake, analysis, and source-linked reports](docs/assets/demo.gif)
 
-See Terms of Surrender in action before trying an agreement of your own.
+See the app in action before trying an agreement of your own.
 
 ## From “I agree” to “I understand”
 
@@ -66,26 +66,44 @@ Instead of just labeling this “auto-renewal,” a useful report explains the *
 **C4-style container overview:** the main applications, process boundaries, and data store—not a collection of microservices. Here, a *container* means an application/process or data store, not necessarily a Docker container.
 
 ```mermaid
-flowchart TB
-    Reader["Reader<br/>[Person]<br/>Reviews agreements and asks questions"]
+%%{init: {
+  "flowchart": {
+    "htmlLabels": true,
+    "useMaxWidth": true,
+    "curve": "linear",
+    "nodeSpacing": 28,
+    "rankSpacing": 65,
+    "padding": 18,
+    "wrappingWidth": 280
+  }
+}}%%
 
-    subgraph System["Terms of Surrender — Architecture overview"]
-        Web["Web application<br/>[Container: Next.js · React · TypeScript]<br/>Contract intake, source-linked reports and API proxy"]
-        API["Backend application<br/>[Container: Spring Boot · Java 21]<br/>Private sessions, ingestion, background analysis and Q&A"]
-        Parser["File parser workers<br/>[Containers: short-lived JVM processes]<br/>PDFBox for PDF · Bounded ZIP/XML parser for DOCX"]
-        DB[("Application database<br/>[Container: H2 / PostgreSQL]<br/>Sessions, source text, jobs, reports and usage quotas")]
+flowchart LR
+    reader["<b>Reader</b><br/><i>[Person]</i><br/>Reviews agreements<br/>and asks questions"]
 
-        Web -->|"Submits contracts; reads reports<br/>HTTP · JSON / multipart / SSE"| API
-        API -->|"Parses PDF/DOCX uploads<br/>stdin/stdout · Bytes / JSON"| Parser
-        API -->|"Persists jobs and reports<br/>JDBC / SQL"| DB
+    subgraph tos ["Terms of Surrender — System Boundary"]
+        direction LR
+
+        web["<b>Web Application</b><br/><i>Next.js · React · TypeScript</i><br/>Contract intake, reports<br/>and API proxy"]
+
+        backend["<b>Backend Application</b><br/><i>Spring Boot · Java 21</i><br/>Private sessions,<br/>analysis and Q&A"]
+
+        parsers["<b>File Parser Workers</b><br/><i>Short-lived JVM processes</i><br/>PDF: Apache PDFBox<br/>DOCX: bounded ZIP/XML parser"]
+
+        db[("<b>Application Database</b><br/><i>H2 locally · PostgreSQL in deployment</i><br/>Sessions, source text,<br/>jobs, reports and quotas")]
+
+        web -->|"HTTP · JSON / multipart<br/>SSE updates"| backend
+        backend -->|"stdin / stdout<br/>Bytes / JSON"| parsers
+        backend -->|"JDBC / SQL"| db
     end
 
-    AI["AI provider — optional<br/>[External software system]<br/>OpenAI-compatible analysis and Q&A"]
-    Pages["Public web pages<br/>[External software systems]<br/>HTML agreements supplied by URL"]
+    ai["<b>AI Provider — Optional</b><br/><i>[External System]</i><br/>OpenAI-compatible<br/>analysis and Q&A"]
 
-    Reader -->|"Uses the application<br/>HTTP(S)"| Web
-    API -->|"Analyzes text; answers questions<br/>HTTPS · JSON"| AI
-    API -->|"Fetches supplied URL<br/>HTTPS · HTML"| Pages
+    webpages["<b>Public Web Pages</b><br/><i>[External Systems]</i><br/>HTML agreements<br/>supplied by URL"]
+
+    reader -->|"HTTP(S)"| web
+    backend -->|"HTTPS · JSON"| ai
+    backend -->|"HTTPS · HTML"| webpages
 ```
 
 **Key:** arrows show calls/dependencies, not every response; the boundary contains project-owned applications and storage. The cylinder represents a database. **SSE** means Server-Sent Events; **stdin/stdout** means standard input/output. HTTP is used locally; public deployments require HTTPS, including protected backend ingress.
